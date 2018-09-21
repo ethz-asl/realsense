@@ -17,6 +17,7 @@ namespace mavros_trigger
 
 template<typename t_chanel_id, typename t_cache>
 class MavrosTrigger{
+
   typedef boost::function<void(const t_chanel_id& channel, const ros::Time& new_stamp, const std::shared_ptr<t_cache>& cal)> caching_callback;
 
   typedef struct {
@@ -29,12 +30,10 @@ class MavrosTrigger{
  public:
   MavrosTrigger(const std::set<t_chanel_id>& channel_set) :
   channel_set_(channel_set){
-    ROS_WARN_STREAM("CHANNEL SIZE" << channel_set_.size());
+
+    ROS_WARN_STREAM("CHANNEL NUMBER" << channel_set_.size());
     for(t_chanel_id id : channel_set_){
       sequence_time_map_[id].clear();
-      ROS_WARN("CHANNEL loop");
-
-      logging_name_[id] = "A";
     }
   }
 
@@ -61,13 +60,8 @@ class MavrosTrigger{
     // First subscribe to the messages so we don't miss any.'
 
     for(t_chanel_id id : channel_set_){
-      ROS_WARN("CHANNEL INIT");
-
-      //sequence_time_map_[id].clear();
-      ROS_WARN("CHANNEL INIT 2");
-
+      sequence_time_map_[id].clear();
     }
-    ROS_WARN("CHANNEL INIT 3");
 
     trigger_sequence_offset_ = 0;
 
@@ -83,14 +77,12 @@ class MavrosTrigger{
       ROS_INFO("Called mavros trigger service! Success? %d Result? %d",
                req.response.success, req.response.result);
     } else {
-      ROS_WARN("Mavros service not available!");
+      ROS_ERROR("Mavros service not available!");
     }
 
     first_image_ = true;
     triggering_started_ = true;
     start_lock.unlock();
-    ROS_WARN("CHANNEL INIT done");
-
   }
 
   bool channelValid(const t_chanel_id& channel){
@@ -99,6 +91,7 @@ class MavrosTrigger{
 
   void cacheFrame(const t_chanel_id& channel, const uint32_t seq, const ros::Time& original_stamp, double exposure,
       const std::shared_ptr<t_cache> frame){
+
     if(!channelValid(channel)){
       ROS_WARN_STREAM_ONCE(log_prefix_ << "cacheFrame called for unsynchronized channel.");
       return;
@@ -109,6 +102,7 @@ class MavrosTrigger{
                                                   "Timestamps from mavros. This message will only print "
                                                   "once a minute.");
     }
+
     cache_queue_[channel].frame = frame;
     cache_queue_[channel].old_stamp = original_stamp;
     cache_queue_[channel].seq = seq;
@@ -119,6 +113,7 @@ class MavrosTrigger{
 
   bool lookupSequenceStamp(const t_chanel_id& channel, const uint32_t seq, const ros::Time& old_stamp, double exposure, ros::Time* new_stamp,
                           bool from_image_queue = false ) {
+
     if(!channelValid(channel)){
       ROS_WARN_STREAM_ONCE(log_prefix_ << "lookupSequenceStamp called for unsynchronized channel.");
       return false;
@@ -164,6 +159,7 @@ class MavrosTrigger{
         ROS_WARN_STREAM("REMOVED CACHE");
         return true;
       }
+
       return false;
     }
 
