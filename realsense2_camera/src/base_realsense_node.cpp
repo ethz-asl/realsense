@@ -590,25 +590,27 @@ void BaseRealSenseNode::setupStreams()
 
         auto frame_callback = [this](rs2::frame frame)
         {
-            if(_force_mavros_triggering && frame.get_profile().stream_type() == RS2_STREAM_DEPTH) {
+            //todo(mpantic): find it where this code belongs ideally (during or before first callback?)
+            if(_force_mavros_triggering) {
                 ros::spinOnce();
 
-                // create callback for cachecd images
-                std::function<void(const stream_index_pair& channel, const ros::Time& new_stamp, const  std::shared_ptr<cache_type>&)> f1 = [this](const stream_index_pair& channel, const ros::Time& new_stamp, const  std::shared_ptr<cache_type>& cal){
+                // create callback for cached images
+                std::function<void(const stream_index_pair& channel,
+                    const ros::Time& new_stamp,
+                    const  std::shared_ptr<cache_type>&)> f1 = [this](const stream_index_pair& channel,
+                                                                      const ros::Time& new_stamp,
+                                                                      const  std::shared_ptr<cache_type>& cal){
                     // fix stamps
                     cal->img->header.stamp = new_stamp;
                     cal->info.header.stamp = new_stamp;
 
                     //publish
-
                     auto& info_publisher = this->_info_publisher.at(channel);
                     auto& image_publisher = this->_image_publishers.at(channel);
                     info_publisher.publish(cal->info);
 
                     image_publisher.first.publish(cal->img);
                     image_publisher.second->update();
-
-
                 };
                 _trigger.callback = f1;
 
@@ -1294,12 +1296,6 @@ void BaseRealSenseNode::publishFrame(rs2::frame f, const ros::Time& t,
     if (copy_data_from_frame)
         image.data = (uint8_t*)f.get_data();
 
-
-
-
-
-
-
     ++(seq[stream]);
     auto& info_publisher = info_publishers.at(stream);
     auto& image_publisher = image_publishers.at(stream);
@@ -1336,13 +1332,20 @@ void BaseRealSenseNode::publishFrame(rs2::frame f, const ros::Time& t,
         ros::Time hw_synced_stamp;
         if(_force_mavros_triggering) {
 
+            // todo(mpantic): investigate why exposure is not available in the beginning.
             double exposure = f.supports_frame_metadata(RS2_FRAME_METADATA_ACTUAL_EXPOSURE) ?
                               static_cast<double>(f.get_frame_metadata(RS2_FRAME_METADATA_ACTUAL_EXPOSURE)) : 0.0;
-            if(!_trigger.lookupSequenceStamp(stream, _seq[stream], t, exposure, &hw_synced_stamp)){
-                auto cache = std::make_shared<cache_type>();
 
+            // allow clearing of IMU queue before we lookup the timestamp
+            ros::spinOnce();
+
+            if(!_trigger.lookupSequenceStamp(stream, _seq[stream], t, exposure, &hw_synced_stamp)){
+
+                auto cache = std::make_shared<cache_type>();
                 cache->img = img;
                 cache->info = cam_info;
+
+                // cache frame and return if timestamp not available
                 _trigger.cacheFrame(stream, _seq[stream], t, exposure, cache);
                 return;
             }else{
