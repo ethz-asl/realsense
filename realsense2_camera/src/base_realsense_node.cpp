@@ -1321,7 +1321,7 @@ void BaseRealSenseNode::publishFrame(rs2::frame f, const ros::Time& t,
         img->step = width * bpp;
         img->header.frame_id = optical_frame_id.at(stream);
         img->header.stamp = t;
-        img->header.seq = seq[stream];
+        img->header.seq = f.get_frame_number();
 
 
         auto& cam_info = camera_info.at(stream);
@@ -1339,14 +1339,14 @@ void BaseRealSenseNode::publishFrame(rs2::frame f, const ros::Time& t,
             // allow clearing of IMU queue before we lookup the timestamp
             ros::spinOnce();
 
-            if(!_trigger.lookupSequenceStamp(stream, _seq[stream], t, exposure, &hw_synced_stamp)){
+            if(!_trigger.lookupSequenceStamp(stream, cam_info.header.seq, t, exposure, &hw_synced_stamp)){
 
                 auto cache = std::make_shared<cache_type>();
                 cache->img = img;
                 cache->info = cam_info;
 
                 // cache frame and return if timestamp not available
-                _trigger.cacheFrame(stream, _seq[stream], t, exposure, cache);
+                _trigger.cacheFrame(stream, cam_info.header.seq, t, exposure, cache);
                 return;
             }else{
                 img->header.stamp = hw_synced_stamp;
