@@ -15,6 +15,13 @@
 
 namespace mavros_trigger
 {
+enum trigger_state{
+  ts_synced = 1,
+  ts_not_initalized,
+  ts_wait_for_sync,
+  ts_disabled
+};
+
 
 template<typename t_chanel_id, typename t_cache>
 class MavrosTrigger{
@@ -30,7 +37,8 @@ class MavrosTrigger{
 
  public:
   MavrosTrigger(const std::set<t_chanel_id>& channel_set) :
-  channel_set_(channel_set){
+  channel_set_(channel_set),
+  state_(ts_not_initalized){
 
     ROS_WARN_STREAM("CHANNEL NUMBER" << channel_set_.size());
     for(t_chanel_id id : channel_set_){
@@ -43,24 +51,24 @@ class MavrosTrigger{
   void setup(){
 
     // Set these for now...
-    first_image_ = false;
     trigger_sequence_offset_ = 0;
-    triggering_started_ = false;
-
     cam_imu_sub_ =
         nh_.subscribe("/mavros/cam_imu_sync/cam_imu_stamp", 100,
                      &MavrosTrigger::camImuStampCallback, this);
 
     delay_pub_ = nh_.advertise<std_msgs::Float64>("delay", 100);
+
+    state_ = ts_not_initalized;
   }
 
   void start() {
     std::lock_guard<std::mutex> lg(start_lock);  // This now locked your mutex
 
-    if(triggering_started_){
+    if(state_ != ts_not_initalized){
       //already started, ignore
       return;
     }
+
     ROS_WARN("TRIGG");
     // First subscribe to the messages so we don't miss any.'
 
@@ -81,13 +89,11 @@ class MavrosTrigger{
 
       ROS_INFO("Called mavros trigger service! Success? %d Result? %d",
                req.response.success, req.response.result);
+      state_ = ts_wait_for_sync;
     } else {
       ROS_ERROR("Mavros service not available!");
+      state_ = ts_disabled;
     }
-
-    first_image_ = true;
-    triggering_started_ = true;
-    ROS_WARN("TRIGG END");
   }
 
   bool channelValid(const t_chanel_id& channel){
@@ -98,7 +104,7 @@ class MavrosTrigger{
       const std::shared_ptr<t_cache> frame){
     std::lock_guard<std::mutex> lg(start_lock);  // This now locked your mutex
 
-    if(first_image_){
+    if(state_ != ts_synced){
       return;
     }
 
@@ -122,10 +128,7 @@ class MavrosTrigger{
   }
 
   void reset(){
-
-    first_image_ = true;
-    triggering_started_ = false;
-
+    state_ = ts_not_initalized;
     for(auto channel : channel_set_){
       sequence_time_map_[channel].clear();
       //if(cache_queue_[channel].frame) cache_queue_[channel].frame.reset();
@@ -153,7 +156,7 @@ class MavrosTrigger{
     }
 
     // Handle case of first image where offset is not determined yet
-    if (first_image_ && !from_image_queue) {
+    if (state_ == ts_wait_for_sync && !from_image_queue) {
 
       // Get the first from the sequence time map.
       auto it = sequence_time_map_[channel].begin();
@@ -173,13 +176,11 @@ class MavrosTrigger{
 
       if(      (it->second.toSec() - old_stamp.toSec()) >0.0) {
         ROS_ERROR("Ignoring negative offset");
-
         return false;
       }
 
-
-      first_image_ = false;
       sequence_time_map_[channel].erase(it);
+      state_ = ts_synced;
       return true;
     }
 
@@ -236,7 +237,7 @@ class MavrosTrigger{
 
   void camImuStampCallback(const mavros_msgs::CamIMUStamp& cam_imu_stamp) {
     start_lock.lock();
-    if (!triggering_started_) {
+    if (state_ == ts_not_initalized) {
       // Ignore stuff from before we *officially* start the triggering.
       // The triggering is techncially always running but...
       start_lock.unlock();
@@ -244,11 +245,10 @@ class MavrosTrigger{
     }
 
     //ignore messages until they wrap back - we should receive a 0 eventually.
-    if(first_image_ && cam_imu_stamp.frame_seq_id != 0){
+    if(state_ == ts_wait_for_sync && cam_imu_stamp.frame_seq_id != 0){
       ROS_WARN("[Cam Imu Sync] Ignoring old messages");
       start_lock.unlock();
       return;
-
     }
 
     // insert stamps into sequence map for all channels
@@ -296,8 +296,10 @@ class MavrosTrigger{
 
  private:
   ros::NodeHandle nh_;
-  bool first_image_;
-  bool triggering_started_;
+
+
+  trigger_state state_;
+
   int trigger_sequence_offset_ = 0;
 
   const std::set<t_chanel_id> channel_set_;
