@@ -9,7 +9,7 @@
 #include <mavros_msgs/CamIMUStamp.h>
 #include <mavros_msgs/CommandTriggerControl.h>
 #include <sensor_msgs/Image.h>
-#include <std_msgs/Float64.h>
+#include <geometry_msgs/PointStamped.h>
 #include <mutex>
 #include <tuple>
 
@@ -46,9 +46,9 @@ class MavrosTrigger{
     }
   }
 
-  caching_callback callback;
+  caching_callback callback_;
 
-  void setup(){
+  void setup(const caching_callback& callback){
 
     // Set these for now...
     trigger_sequence_offset_ = 0;
@@ -56,9 +56,12 @@ class MavrosTrigger{
         nh_.subscribe("/mavros/cam_imu_sync/cam_imu_stamp", 100,
                      &MavrosTrigger::camImuStampCallback, this);
 
-    delay_pub_ = nh_.advertise<std_msgs::Float64>("delay", 100);
+    delay_pub_ = nh_.advertise<geometry_msgs::PointStamped>("delay", 100);
 
     state_ = ts_not_initalized;
+
+    callback_ = callback;
+    ROS_ERROR("CALLBACK SET");
   }
 
   void start() {
@@ -112,6 +115,8 @@ class MavrosTrigger{
       ROS_WARN_STREAM_ONCE(log_prefix_ << "cacheFrame called for unsynchronized channel.");
       return;
     }
+
+
 
     if(cache_queue_[channel].frame) {
       ROS_WARN_STREAM_THROTTLE(10, log_prefix_ << " Overwriting image queue! Make sure you're getting "
@@ -179,6 +184,13 @@ class MavrosTrigger{
         return false;
       }
 
+      double delay = old_stamp.toSec() - it->second.toSec();
+      geometry_msgs::PointStamped msg;
+      msg.header.stamp = it->second;
+      msg.point.x = delay;
+      msg.point.y = 1.0;
+      delay_pub_.publish(msg);
+
       sequence_time_map_[channel].erase(it);
       state_ = ts_synced;
       return true;
@@ -200,7 +212,10 @@ class MavrosTrigger{
     }
 
     double delay = old_stamp.toSec() - it->second.toSec();
-    delay_pub_.publish(delay);
+    geometry_msgs::PointStamped msg;
+    msg.header.stamp = it->second;
+    msg.point.x = delay;
+    delay_pub_.publish(msg);
     ROS_INFO("[Mavros Triggering] Remapped seq %d to %d, %f to %f: %f", seq,
               seq + trigger_sequence_offset_, old_stamp.toSec(),
               it->second.toSec(), delay);
@@ -230,7 +245,8 @@ class MavrosTrigger{
   ros::Time shiftTimestampToMidExposure(const ros::Time& stamp,
                                         double exposure_us) {
     ROS_WARN_STREAM(".5 Exposure =" << exposure_us*1e-6/2.0);
-    ros::Time new_stamp = stamp ;//+ ros::Duration(exposure_us * 1e-6 / 2.0); (debug)c
+    ros::Time new_stamp = stamp + ros::Duration(exposure_us * 1e-6 / 2.0) + ros::Duration(8.75 * 1e-3);
+
     return new_stamp;
   }
 
@@ -281,10 +297,10 @@ class MavrosTrigger{
           cache_queue_[channel].old_stamp,
           cache_queue_[channel].exposure,
           &new_stamp, kFromImageQueue)) {
-        if (callback) {
+        if (callback_) {
           ROS_WARN_STREAM(log_prefix_ << "Released image w seq " << cache_queue_[channel].seq);
 
-          callback(channel, new_stamp, cache_queue_[channel].frame);
+          callback_(channel, new_stamp, cache_queue_[channel].frame);
         } else {
           ROS_WARN_STREAM_THROTTLE(10, log_prefix_ << " No callback set - discarding cached images.");
         }

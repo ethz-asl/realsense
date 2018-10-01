@@ -129,7 +129,26 @@ void BaseRealSenseNode::getParameters()
 
     // set up mavros trigger if enabled
     if(_force_mavros_triggering){
-        _trigger.setup();
+
+        // create callback for cached images
+        std::function<void(const stream_index_pair& channel,
+                           const ros::Time& new_stamp,
+                           const  std::shared_ptr<cache_type>&)> f1 = [this](const stream_index_pair& channel,
+                                                                             const ros::Time& new_stamp,
+                                                                             const  std::shared_ptr<cache_type>& cal){
+          // fix stamps
+          cal->img->header.stamp = new_stamp;
+          cal->info.header.stamp = new_stamp;
+
+          //publish
+          auto& info_publisher = this->_info_publisher.at(channel);
+          auto& image_publisher = this->_image_publishers.at(channel);
+          info_publisher.publish(cal->info);
+
+          image_publisher.first.publish(cal->img);
+          image_publisher.second->update();
+        };
+        _trigger.setup(f1);
         //ros::Duration(1.0).sleep();
     }
 
@@ -594,25 +613,6 @@ void BaseRealSenseNode::setupStreams()
             if(_force_mavros_triggering) {
                 ros::spinOnce();
 
-                // create callback for cached images
-                std::function<void(const stream_index_pair& channel,
-                    const ros::Time& new_stamp,
-                    const  std::shared_ptr<cache_type>&)> f1 = [this](const stream_index_pair& channel,
-                                                                      const ros::Time& new_stamp,
-                                                                      const  std::shared_ptr<cache_type>& cal){
-                    // fix stamps
-                    cal->img->header.stamp = new_stamp;
-                    cal->info.header.stamp = new_stamp;
-
-                    //publish
-                    auto& info_publisher = this->_info_publisher.at(channel);
-                    auto& image_publisher = this->_image_publishers.at(channel);
-                    info_publisher.publish(cal->info);
-
-                    image_publisher.first.publish(cal->img);
-                    image_publisher.second->update();
-                };
-                _trigger.callback = f1;
 
                 _trigger.start();
                 ros::spinOnce();
@@ -700,6 +700,7 @@ void BaseRealSenseNode::setupStreams()
 
                     stream_index_pair sip{stream_type,stream_index};
 
+                    ros::spinOnce();
                     publishFrame(frame, t,
                                  sip,
                                  _image,
@@ -1314,6 +1315,7 @@ void BaseRealSenseNode::publishFrame(rs2::frame f, const ros::Time& t,
         }
 
         sensor_msgs::ImagePtr img;
+
         img = cv_bridge::CvImage(std_msgs::Header(), encoding.at(stream), image).toImageMsg();
         img->width = width;
         img->height = height;
