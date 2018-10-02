@@ -245,7 +245,7 @@ class MavrosTrigger{
   ros::Time shiftTimestampToMidExposure(const ros::Time& stamp,
                                         double exposure_us) {
     ROS_WARN_STREAM(".5 Exposure =" << exposure_us*1e-6/2.0);
-    ros::Time new_stamp = stamp + ros::Duration(exposure_us * 1e-6 / 2.0) + ros::Duration(8.75 * 1e-3);
+    ros::Time new_stamp = stamp + ros::Duration(exposure_us * 1e-6 / 2.0) + ros::Duration(9.25 * 1e-3);
 
     return new_stamp;
   }
