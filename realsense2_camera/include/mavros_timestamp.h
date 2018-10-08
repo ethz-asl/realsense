@@ -109,18 +109,26 @@ class MavrosTrigger {
 
   void cacheFrame(const t_chanel_id &channel, const uint32_t seq, const ros::Time &original_stamp, double exposure,
                   const std::shared_ptr<t_cache> frame) {
-    std::lock_guard<std::mutex> lg(mutex_);
-
+    mutex_.lock();
     if (state_ != ts_synced) {
+      mutex_.unlock();
       return;
     }
 
     if (!channelValid(channel)) {
+      mutex_.unlock();
       ROS_WARN_STREAM_ONCE(log_prefix_ << "cacheFrame called for invalid channel.");
       return;
     }
 
+    if(cache_queue_[channel].frame){
+      mutex_.unlock();
+      ros::spinOnce();
+      mutex_.lock();
+    }
+
     if (cache_queue_[channel].frame) {
+
       ROS_WARN_STREAM_THROTTLE(10, log_prefix_ << " Overwriting image queue! Make sure you're getting "
                                                   "Timestamps from mavros. This message will only print "
                                                   "every 10 sec.");
@@ -132,6 +140,7 @@ class MavrosTrigger {
     cache_queue_[channel].seq = seq;
     cache_queue_[channel].exposure = exposure;
     ROS_DEBUG_STREAM(log_prefix_ << "Cached frame w seq " << seq);
+    mutex_.unlock();
   }
 
   bool syncOffset(const t_chanel_id &channel, const uint32_t seq, const ros::Time &old_stamp) {
@@ -157,12 +166,13 @@ class MavrosTrigger {
     const double kMinExpectedDelay = 0.0;
     const double kMaxExpectedDelay = 34.0 * 1e-3;
 
-    if ((delay < kMinExpectedDelay || delay > kMaxExpectedDelay)) {
+    if (delay > kMaxExpectedDelay) {
       ROS_ERROR(
           "%s Delay out of bounds! Actual delay: %f s, min: "
           "%f s max: %f s. Resetting triggering on next image.",
           log_prefix_,
           delay, kMinExpectedDelay, kMaxExpectedDelay);
+      state_ = ts_not_initalized;
       return false;
     }
 
@@ -258,7 +268,8 @@ class MavrosTrigger {
   }
 
   void camImuStampCallback(const mavros_msgs::CamIMUStamp &cam_imu_stamp) {
-    mutex_.lock();
+    mutex_.lock(); // we don't use a lock guard here because we want to release before function ends.
+
     if (state_ == ts_not_initalized) {
       // Ignore stuff from before we *officially* start the triggering.
       // The triggering is techncially always running but...
@@ -286,7 +297,8 @@ class MavrosTrigger {
         cam_imu_stamp.frame_seq_id - trigger_sequence_offset_,
         cam_imu_stamp.frame_stamp.toSec());
 
-    mutex_.unlock();
+    mutex_.unlock(); // unlock here to prevent cascading locks. for now..
+
     // release potentially cached frames
     constexpr bool kFromImageQueue = true;
 
@@ -305,7 +317,7 @@ class MavrosTrigger {
                               cache_queue_[channel].exposure,
                               &new_stamp, kFromImageQueue)) {
         if (callback_) {
-          ROS_WARN_STREAM(log_prefix_ << "Released image w seq " << cache_queue_[channel].seq);
+          ROS_DEBUG_STREAM(log_prefix_ << "Released image w seq " << cache_queue_[channel].seq);
 
           callback_(channel, new_stamp, cache_queue_[channel].frame);
         } else {
@@ -314,7 +326,6 @@ class MavrosTrigger {
         cache_queue_[channel].frame.reset();
       }
     }
-    ROS_INFO("DONE");
   }
 
  private:

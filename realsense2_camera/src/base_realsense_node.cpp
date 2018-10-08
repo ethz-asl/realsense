@@ -612,8 +612,6 @@ void BaseRealSenseNode::setupStreams()
             //todo(mpantic): find it where this code belongs ideally (during or before first callback?)
             if(_force_mavros_triggering) {
                 ros::spinOnce();
-
-
                 _trigger.start();
                 ros::spinOnce();
             }
@@ -651,7 +649,7 @@ void BaseRealSenseNode::setupStreams()
                 std::vector<rs2::frame> frames;
                 if (frame.is<rs2::frameset>())
                 {
-                    ROS_INFO("Frameset arrived.");
+                    ROS_DEBUG("Frameset arrived.");
                     bool is_depth_arrived = false;
                     rs2::frame depth_frame;
                     auto frameset = frame.as<rs2::frameset>();
@@ -662,7 +660,7 @@ void BaseRealSenseNode::setupStreams()
                         auto stream_index = f.get_profile().stream_index();
                         updateIsFrameArrived(is_frame_arrived, stream_type, stream_index);
 
-                        ROS_INFO("Frameset contain (%s, %d) frame. frame_number: %llu ; frame_TS: %f ; ros_TS(NSec): %lu",
+                        ROS_DEBUG("Frameset contain (%s, %d) frame. frame_number: %llu ; frame_TS: %f ; ros_TS(NSec): %lu",
                                   rs2_stream_to_string(stream_type), stream_index, frame.get_frame_number(), frame.get_timestamp(), t.toNSec());
 
                         stream_index_pair sip{stream_type,stream_index};
@@ -695,7 +693,7 @@ void BaseRealSenseNode::setupStreams()
                     auto stream_type = frame.get_profile().stream_type();
                     auto stream_index = frame.get_profile().stream_index();
                     updateIsFrameArrived(is_frame_arrived, stream_type, stream_index);
-                    ROS_INFO("Single video frame arrived (%s, %d). frame_number: %llu ; frame_TS: %f ; ros_TS(NSec): %lu",
+                    ROS_DEBUG("Single video frame arrived (%s, %d). frame_number: %llu ; frame_TS: %f ; ros_TS(NSec): %lu",
                               rs2_stream_to_string(stream_type), stream_index, frame.get_frame_number(), frame.get_timestamp(), t.toNSec());
 
                     stream_index_pair sip{stream_type,stream_index};
