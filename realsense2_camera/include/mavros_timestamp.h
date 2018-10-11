@@ -299,7 +299,7 @@ class MavrosTrigger {
         auto entry = it_next_sequence->second;
 
         // adjust timestamp
-        ros::Time midpoint_exposure = shiftTimestampToMidExposure(entry.stamp_camera,
+        ros::Time midpoint_exposure = shiftTimestampToMidExposure(entry.stamp_trigger,
                                                                    entry.exposure);
 
         // call callback to publish
@@ -321,7 +321,7 @@ class MavrosTrigger {
         cache_queue_[channel].erase(it_next_sequence);
 
       } else {
-        ROS_INFO_STREAM(log_prefix_ << "|cache|= " << cache_queue_[channel].size());
+        ROS_INFO_STREAM(log_prefix_ << "|cache|= " << cache_queue_[channel].size() << ". ");
       }
 
     } while(entry_released);
