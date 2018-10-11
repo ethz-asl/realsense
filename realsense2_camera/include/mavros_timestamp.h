@@ -72,7 +72,7 @@ class MavrosTrigger {
     state_ = ts_not_initalized;
     callback_ = callback;
     cam_imu_sub_ =
-        nh_.subscribe("/loon/mavros/cam_imu_sync/cam_imu_stamp", 100,
+        nh_.subscribe("/mavros/cam_imu_sync/cam_imu_stamp", 100,
                       &MavrosTrigger::camImuStampCallback, this);
 
     ROS_DEBUG_STREAM(log_prefix_ << " Callback set and subscribed to cam_imu_stamp");
@@ -94,7 +94,7 @@ class MavrosTrigger {
 
     trigger_sequence_offset_ = 0;
 
-    const std::string mavros_trigger_service = "/loon/mavros/cmd/trigger_control";
+    const std::string mavros_trigger_service = "/mavros/cmd/trigger_control";
     if (ros::service::exists(mavros_trigger_service, false)) {
       mavros_msgs::CommandTriggerControl req;
       req.request.trigger_enable = true;
