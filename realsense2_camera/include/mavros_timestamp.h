@@ -147,11 +147,7 @@ class MavrosTrigger {
     const double kMaxExpectedDelay = 17.0 * 1e-3;
 
     if (delay > kMaxExpectedDelay || delay < kMinExpectedDelay) {
-      ROS_ERROR(
-          "%s Delay out of bounds! Actual delay: %f s, min: "
-          "%f s max: %f s. Resetting triggering on next image.",
-          log_prefix_,
-          delay, kMinExpectedDelay, kMaxExpectedDelay);
+      ROS_ERROR_STREAM(log_prefix_ << "Delay out of bounds: " << delay );
       state_ = ts_not_initalized;
       return false;
     }
@@ -172,6 +168,7 @@ class MavrosTrigger {
 
     if (!channelValid(channel)) {
       ROS_WARN_STREAM_ONCE(log_prefix_ << "Unsynchronized channe - ignoring frame.");
+      return;
     }
 
     if (state_ == ts_wait_for_sync) {
