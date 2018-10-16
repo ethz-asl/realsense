@@ -35,6 +35,9 @@
   <arg name="enable_pointcloud"   default="false"/>
   <arg name="enable_sync"         default="false"/>
   <arg name="align_depth"         default="false"/>
+  <arg name="inter_cam_sync_mode" default="none" />
+  <arg name="force_mavros_triggering"    default="false" />
+  <arg name="rs435_depth_emitter_enabled" default="1" />
 
   <group ns="$(arg camera)">
     <include file="$(find realsense2_camera)/launch/includes/nodelet.launch.xml">
@@ -44,6 +47,9 @@
       <arg name="enable_pointcloud"        value="$(arg enable_pointcloud)"/>
       <arg name="enable_sync"              value="$(arg enable_sync)"/>
       <arg name="align_depth"              value="$(arg align_depth)"/>
+      <arg name="inter_cam_sync_mode"      value="$(arg inter_cam_sync_mode)" />
+      <arg name="force_mavros_triggering"  value="$(arg force_mavros_triggering)" />
+      <arg name="rs435_depth_emitter_enabled" value="$(arg rs435_depth_emitter_enabled)" />
 
       <arg name="fisheye_width"            value="$(arg fisheye_width)"/>
       <arg name="fisheye_height"           value="$(arg fisheye_height)"/>
@@ -76,3 +82,4 @@
     </include>
   </group>
 </launch>
+
