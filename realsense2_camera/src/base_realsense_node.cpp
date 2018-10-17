@@ -135,60 +135,6 @@ void BaseRealSenseNode::getParameters()
 {
     ROS_INFO("getParameters...");
 
-    std::string inter_cam_sync_mode_param;
-    _pnh.param("inter_cam_sync_mode", inter_cam_sync_mode_param, INTER_CAM_SYNC_MODE);
-    std::transform(inter_cam_sync_mode_param.begin(), inter_cam_sync_mode_param.end(),
-        inter_cam_sync_mode_param.begin(), ::tolower);
-
-    // note: added a "none" mode, as not all sensor types/firmware versions allow setting of the sync mode.
-    //       Use "none" if nothing is specified or an error occurs.
-    //       Default (mode = 0) here refers to the default sync mode as per Intel whitepaper,
-    //       which corresponds to master mode but no trigger output on Pin 5.
-    //       Master (mode = 1) activates trigger signal output on Pin 5.
-    //       Slave (mode = 2) causes the realsense to listen to a trigger signal on pin 5.
-
-    if(inter_cam_sync_mode_param == "default"){ _inter_cam_sync_mode = 0; }
-    else if(inter_cam_sync_mode_param == "master") { _inter_cam_sync_mode = 1; }
-    else if(inter_cam_sync_mode_param == "slave"){ _inter_cam_sync_mode = 2; }
-    else if(inter_cam_sync_mode_param == "none") { _inter_cam_sync_mode = -1; }
-    else
-    {
-        _inter_cam_sync_mode = -1;
-         ROS_WARN_STREAM("Invalid inter cam sync mode (" << inter_cam_sync_mode_param << ")! Not using inter cam sync mode.");
-    }
-
-    _pnh.param("force_mavros_triggering", _force_mavros_triggering, FORCE_MAVROS_TRIGGERING);
-    if(_force_mavros_triggering && _inter_cam_sync_mode != 2)
-    {
-        ROS_WARN_STREAM("Force mavros triggering enabled but device not set to slave triggering mode!");
-    }
-
-    // set up mavros trigger if enabled
-    if(_force_mavros_triggering)
-    {
-
-        // create callback for cached images
-        std::function<void(const stream_index_pair& channel,
-                           const ros::Time& new_stamp,
-                           const  std::shared_ptr<cache_type>&)> f_cb = [this](const stream_index_pair& channel,
-                                                                             const ros::Time& new_stamp,
-                                                                             const  std::shared_ptr<cache_type>& cal){
-          // fix stamps
-          cal->img->header.stamp = new_stamp;
-          cal->info.header.stamp = new_stamp;
-
-          //publish
-          auto& info_publisher = this->_info_publisher.at(channel);
-          auto& image_publisher = this->_image_publishers.at(channel);
-          info_publisher.publish(cal->info);
-
-          image_publisher.first.publish(cal->img);
-          image_publisher.second->update();
-        };
-        _trigger.setup(f_cb);
-    }
-
-
     _pnh.param("align_depth", _align_depth, ALIGN_DEPTH);
     _pnh.param("enable_pointcloud", _pointcloud, POINTCLOUD);
     std::string pc_texture_stream("");
@@ -262,6 +208,58 @@ void BaseRealSenseNode::getParameters()
     _pnh.param("aligned_depth_to_infra1_frame_id",  _depth_aligned_frame_id[INFRA1],  DEFAULT_ALIGNED_DEPTH_TO_INFRA1_FRAME_ID);
     _pnh.param("aligned_depth_to_infra2_frame_id",  _depth_aligned_frame_id[INFRA2],  DEFAULT_ALIGNED_DEPTH_TO_INFRA2_FRAME_ID);
     _pnh.param("aligned_depth_to_fisheye_frame_id", _depth_aligned_frame_id[FISHEYE], DEFAULT_ALIGNED_DEPTH_TO_FISHEYE_FRAME_ID);
+
+    std::string inter_cam_sync_mode_param;
+    _pnh.param("inter_cam_sync_mode", inter_cam_sync_mode_param, INTER_CAM_SYNC_MODE);
+    std::transform(inter_cam_sync_mode_param.begin(), inter_cam_sync_mode_param.end(),
+                   inter_cam_sync_mode_param.begin(), ::tolower);
+
+    // note: added a "none" mode, as not all sensor types/firmware versions allow setting of the sync mode.
+    //       Use "none" if nothing is specified or an error occurs.
+    //       Default (mode = 0) here refers to the default sync mode as per Intel whitepaper,
+    //       which corresponds to master mode but no trigger output on Pin 5.
+    //       Master (mode = 1) activates trigger signal output on Pin 5.
+    //       Slave (mode = 2) causes the realsense to listen to a trigger signal on pin 5.
+    if(inter_cam_sync_mode_param == "default"){ _inter_cam_sync_mode = 0; }
+    else if(inter_cam_sync_mode_param == "master") { _inter_cam_sync_mode = 1; }
+    else if(inter_cam_sync_mode_param == "slave"){ _inter_cam_sync_mode = 2; }
+    else if(inter_cam_sync_mode_param == "none") { _inter_cam_sync_mode = -1; }
+    else
+    {
+        _inter_cam_sync_mode = -1;
+        ROS_WARN_STREAM("Invalid inter cam sync mode (" << inter_cam_sync_mode_param << ")! Not using inter cam sync mode.");
+    }
+
+    _pnh.param("force_mavros_triggering", _force_mavros_triggering, FORCE_MAVROS_TRIGGERING);
+    if(_force_mavros_triggering && _inter_cam_sync_mode != 2)
+    {
+        ROS_WARN_STREAM("Force mavros triggering enabled but device not set to slave triggering mode!");
+    }
+
+    // set up mavros trigger if enabled
+    if(_force_mavros_triggering)
+    {
+
+        // create callback for cached images
+        std::function<void(const stream_index_pair& channel,
+                           const ros::Time& new_stamp,
+                           const  std::shared_ptr<cache_type>&)> f_cb = [this](const stream_index_pair& channel,
+                                                                               const ros::Time& new_stamp,
+                                                                               const  std::shared_ptr<cache_type>& cal){
+          // fix stamps
+          cal->img->header.stamp = new_stamp;
+          cal->info.header.stamp = new_stamp;
+
+          //publish
+          auto& info_publisher = this->_info_publisher.at(channel);
+          auto& image_publisher = this->_image_publishers.at(channel);
+          info_publisher.publish(cal->info);
+
+          image_publisher.first.publish(cal->img);
+          image_publisher.second->update();
+        };
+        _trigger.setup(f_cb, static_cast<double>(_fps[INFRA1]));
+    }
 }
 
 void BaseRealSenseNode::setupDevice()

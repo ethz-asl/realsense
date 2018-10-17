@@ -92,18 +92,19 @@ class MavrosTrigger {
     }
   }
 
-  void setup(const caching_callback &callback) {
+  void setup(const caching_callback &callback, double framerate) {
     std::lock_guard<std::mutex> lg(mutex_);
 
     trigger_sequence_offset_ = 0;
     delay_pub_ = nh_.advertise<geometry_msgs::PointStamped>(kDelayTopic, 100);
     state_ = ts_not_initalized;
+    framerate_ = framerate; // approximate framerate to do outlier checking
     callback_ = callback;
     cam_imu_sub_ =
         nh_.subscribe(kCamImuSyncTopic, 100,
                       &MavrosTrigger::camImuStampCallback, this);
 
-    ROS_DEBUG_STREAM(log_prefix_ << " Callback set and subscribed to cam_imu_stamp");
+    ROS_DEBUG_STREAM(log_prefix_ << " Initialized with callback and framerate "<< framerate << " hz and subscribed to cam_imu_sub");
   }
 
   void start() {
@@ -278,11 +279,10 @@ class MavrosTrigger {
     double delay = stamp_camera.toSec() - it->second.stamp_trigger.toSec();
 
     // Check for divergence (too large delay)
-    const double kMinExpectedDelay = -17.0 * 1e-3;
-    const double kMaxExpectedDelay = 17.0 * 1e-3;
+    double delay_bounds = 1.0/framerate_;
 
-    if (delay > kMaxExpectedDelay || delay < kMinExpectedDelay) {
-      ROS_ERROR_STREAM(log_prefix_ << "Delay out of bounds: " << delay );
+    if (std::abs(delay) > delay_bounds) {
+      ROS_ERROR_STREAM(log_prefix_ << "Delay out of bounds: " << delay << ", bounds are +/-" << delay_bounds << " s");
       state_ = ts_not_initalized;
       return false;
     }
@@ -324,6 +324,12 @@ class MavrosTrigger {
     }
   }
 
+  /*
+   * Checks all cache entries in cache_queue_ and publishes those that
+   *  - have both camera info and trigger info filled out
+   *  - have sequence_id = last_published_trigger_seq_ + 1 ( so we only publish in order)
+   *  Runs as long as messages are available that satisfy this.
+   */
   void releaseCacheEntries(const t_channel_id& channel){
     bool entry_released = false;
 
@@ -345,8 +351,8 @@ class MavrosTrigger {
         ros::Time midpoint_exposure = shiftTimestampToMidExposure(entry.stamp_trigger,
                                                                    entry.exposure);
 
-        // publish if there is a cached frame
-        //  - sometimes we add camera sequences without frames, e.g. if there are no subscribers
+        // callback to publish if there is a cached frame
+        //  - sometimes we add camera sequences without cached frames, e.g. if there are no subscribers
         //  - e.g. by calling addCameraSequence
         if(entry.frame != nullptr) {
           callback_(channel, midpoint_exposure, entry.frame);
@@ -373,7 +379,7 @@ class MavrosTrigger {
     } while(entry_released);
 
   }
-  
+
   ros::NodeHandle nh_;
 
   const std::set<t_channel_id> channel_set_;
@@ -388,8 +394,10 @@ class MavrosTrigger {
 
   std::map<t_channel_id, std::map<uint32_t, cache_queue_type>> cache_queue_;
   std::map<t_channel_id, int32_t> last_published_trigger_seq_;
+  double framerate_; // [hz]
 
   const std::string log_prefix_ = "[Mavros Triggering] ";
+
 };
 
 }
