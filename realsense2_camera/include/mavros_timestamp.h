@@ -45,8 +45,6 @@
 //      that is not const. This is due to the fact that many callbacks can happen simultaneously, especially
 //      on callback based drivers such as the realsense. If not locked properly, this can lead to weird states.
 //      Note that all private functions assume that they are called in a locked context (no cascading locks).
-
-
 namespace mavros_trigger {
 
 enum trigger_state {
@@ -81,7 +79,6 @@ class MavrosTrigger {
   } cache_queue_type;
 
 
-
  public:
   MavrosTrigger(const std::set<t_channel_id> &channel_set) :
       channel_set_(channel_set),
@@ -104,7 +101,7 @@ class MavrosTrigger {
         nh_.subscribe(kCamImuSyncTopic, 100,
                       &MavrosTrigger::camImuStampCallback, this);
 
-    ROS_DEBUG_STREAM(log_prefix_ << " Initialized with callback and framerate "<< framerate << " hz and subscribed to cam_imu_sub");
+    ROS_DEBUG_STREAM(log_prefix_ << " Initialized with callback and framerate " << framerate << " hz and subscribed to cam_imu_sub");
   }
 
   void start() {
@@ -143,8 +140,13 @@ class MavrosTrigger {
 
   void waitMavros(){
     ROS_INFO_STREAM("Waiting for mavros service....");
-    ros::service::waitForService(kTriggerService);
-    ROS_INFO_STREAM("... mavros service ready.");
+    if(ros::service::waitForService(kTriggerService, ros::Duration(10))){
+      ROS_INFO_STREAM("... mavros service ready.");
+    } else {
+      ROS_ERROR_STREAM("... mavros service wait timeout.");
+      // service disable is handled in start() function
+    }
+
   }
 
   /*
