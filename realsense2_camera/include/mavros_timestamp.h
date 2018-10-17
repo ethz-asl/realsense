@@ -72,7 +72,7 @@ class MavrosTrigger {
     state_ = ts_not_initalized;
     callback_ = callback;
     cam_imu_sub_ =
-        nh_.subscribe("/mavros/cam_imu_sync/cam_imu_stamp", 100,
+        nh_.subscribe("/loon/mavros/cam_imu_sync/cam_imu_stamp", 100,
                       &MavrosTrigger::camImuStampCallback, this);
 
     ROS_DEBUG_STREAM(log_prefix_ << " Callback set and subscribed to cam_imu_stamp");
@@ -94,7 +94,8 @@ class MavrosTrigger {
 
     trigger_sequence_offset_ = 0;
 
-    const std::string mavros_trigger_service = "/mavros/cmd/trigger_control";
+    const std::string mavros_trigger_service = "/loon/mavros/cmd/trigger_control";
+    
     if (ros::service::exists(mavros_trigger_service, false)) {
       mavros_msgs::CommandTriggerControl req;
       req.request.trigger_enable = true;
@@ -110,14 +111,27 @@ class MavrosTrigger {
       ROS_ERROR("Mavros service not available!");
       state_ = ts_disabled;
     }
+
   }
 
+  void waitMavros(){
+
+    const std::string mavros_trigger_service = "/loon/mavros/cmd/trigger_control";
+    
+    ros::service::waitForService(mavros_trigger_service);
+  }
+  
   bool channelValid(const t_channel_id &channel) const {
     return channel_set_.count(channel) == 1;
   }
 
 
   bool syncOffset(const t_channel_id &channel, const uint32_t seq_camera, const ros::Time &stamp_camera) {
+    if(cache_queue_[channel].empty()){
+      ROS_ERROR_STREAM(log_prefix_ << "Queue empty");
+      return false;
+    }
+
     // Get the first from the sequence time map.
     auto it = cache_queue_[channel].begin();
     if(!it->second.trigger_info){
@@ -163,7 +177,8 @@ class MavrosTrigger {
 
   void addCameraFrame(const t_channel_id &channel, const uint32_t camera_seq,
       const ros::Time &camera_stamp, const std::shared_ptr<t_cache>& frame, const double exposure){
-
+  
+    ros::spinOnce();
     std::lock_guard<std::mutex> lg(mutex_);
 
     if (!channelValid(channel)) {
@@ -188,6 +203,8 @@ class MavrosTrigger {
     // get trigger sequence for this camera frame
     const uint32_t trigger_seq = cameraToTriggerSeq(camera_seq);
 
+    ROS_INFO_STREAM(log_prefix_ << " Received camera frame for seq " << trigger_seq);
+
     // get or create cache item for this trigger_seq
     cache_queue_type& cache_entry = cache_queue_[channel][trigger_seq];
 
@@ -209,7 +226,7 @@ class MavrosTrigger {
   ros::Time shiftTimestampToMidExposure(const ros::Time &stamp,
                                         const double exposure_us) const {
 
-    ros::Time new_stamp = stamp + ros::Duration(exposure_us * 1e-6 / 2.0) + ros::Duration(9.25 * 1e-3);
+    ros::Time new_stamp = stamp + ros::Duration(exposure_us * 1e-6 / 2.0) - ros::Duration(3.75 * 1e-3);
     return new_stamp;
   }
 
@@ -226,9 +243,6 @@ class MavrosTrigger {
     //ignore messages until they wrap back - we should receive a 0 eventually.
     if (state_ == ts_wait_for_sync && cam_imu_stamp.frame_seq_id != 0) {
       ROS_WARN("[Cam Imu Sync] Ignoring old messages, clearing queues");
-      for (auto channel : channel_set_) {
-        cache_queue_[channel].clear();
-      }
       mutex_.unlock();
       return;
     }

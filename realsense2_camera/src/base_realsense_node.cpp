@@ -85,6 +85,10 @@ BaseRealSenseNode::BaseRealSenseNode(ros::NodeHandle& nodeHandle,
 void BaseRealSenseNode::publishTopics()
 {
     getParameters();
+    if(_force_mavros_triggering){
+      _trigger.waitMavros();
+    }
+ 
     setupDevice();
     setupPublishers();
     setupStreams();
@@ -693,7 +697,7 @@ void BaseRealSenseNode::setupStreams()
                     auto stream_type = frame.get_profile().stream_type();
                     auto stream_index = frame.get_profile().stream_index();
                     updateIsFrameArrived(is_frame_arrived, stream_type, stream_index);
-                    ROS_DEBUG("Single video frame arrived (%s, %d). frame_number: %llu ; frame_TS: %f ; ros_TS(NSec): %lu",
+                    ROS_DEBUG("       Single video frame arrived (%s, %d). frame_number: %llu ; frame_TS: %f ; ros_TS(NSec): %lu",
                               rs2_stream_to_string(stream_type), stream_index, frame.get_frame_number(), frame.get_timestamp(), t.toNSec());
 
                     stream_index_pair sip{stream_type,stream_index};
@@ -1343,7 +1347,7 @@ void BaseRealSenseNode::publishFrame(rs2::frame f, const ros::Time& t,
             frame->img = img;
             frame->info = cam_info;
 
-            _trigger.addCameraFrame(stream, cam_info.header.seq, t, frame, exposure);
+            _trigger.addCameraFrame(stream, seq[stream], t, frame, exposure);
 
             return;
         }
