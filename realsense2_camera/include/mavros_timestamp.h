@@ -58,8 +58,8 @@ template<typename t_channel_id, typename t_cache>
 class MavrosTrigger {
 
   const std::string kDelayTopic = "delay";
-  const std::string kCamImuSyncTopic = "mavros/cam_imu_sync/cam_imu_stamp";
-  const std::string kTriggerService = "mavros/cmd/trigger_control";
+  const std::string kCamImuSyncTopic = "cam_imu_stamp";
+  const std::string kTriggerService = "trigger_control";
 
   // callback definition for processing cached frames (with type t_cache).
   typedef boost::function<void(const t_channel_id &channel,
