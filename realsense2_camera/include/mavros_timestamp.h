@@ -115,10 +115,11 @@ class MavrosTrigger {
   }
 
   void waitMavros(){
-
+    ROS_INFO_STREAM("Waiting for mavros service....");
     const std::string mavros_trigger_service = "/loon/mavros/cmd/trigger_control";
     
     ros::service::waitForService(mavros_trigger_service);
+    ROS_INFO_STREAM("... mavros service ready.");
   }
   
   bool channelValid(const t_channel_id &channel) const {

@@ -99,10 +99,12 @@ void BaseRealSenseNode::toggleSensors(bool enabled)
 void BaseRealSenseNode::publishTopics()
 {
     getParameters();
-    if(_force_mavros_triggering){
-      _trigger.waitMavros();
+
+    if(_force_mavros_triggering)
+    {
+        // wait until trigger service becomes available
+        _trigger.waitMavros();
     }
- 
     setupDevice();
     setupPublishers();
     setupStreams();
@@ -149,23 +151,26 @@ void BaseRealSenseNode::getParameters()
     else if(inter_cam_sync_mode_param == "master") { _inter_cam_sync_mode = 1; }
     else if(inter_cam_sync_mode_param == "slave"){ _inter_cam_sync_mode = 2; }
     else if(inter_cam_sync_mode_param == "none") { _inter_cam_sync_mode = -1; }
-    else {
+    else
+    {
         _inter_cam_sync_mode = -1;
          ROS_WARN_STREAM("Invalid inter cam sync mode (" << inter_cam_sync_mode_param << ")! Not using inter cam sync mode.");
     }
 
     _pnh.param("force_mavros_triggering", _force_mavros_triggering, FORCE_MAVROS_TRIGGERING);
-    if(_force_mavros_triggering && _inter_cam_sync_mode != 2){
+    if(_force_mavros_triggering && _inter_cam_sync_mode != 2)
+    {
         ROS_WARN_STREAM("Force mavros triggering enabled but device not set to slave triggering mode!");
     }
 
     // set up mavros trigger if enabled
-    if(_force_mavros_triggering){
+    if(_force_mavros_triggering)
+    {
 
         // create callback for cached images
         std::function<void(const stream_index_pair& channel,
                            const ros::Time& new_stamp,
-                           const  std::shared_ptr<cache_type>&)> f1 = [this](const stream_index_pair& channel,
+                           const  std::shared_ptr<cache_type>&)> f_cb = [this](const stream_index_pair& channel,
                                                                              const ros::Time& new_stamp,
                                                                              const  std::shared_ptr<cache_type>& cal){
           // fix stamps
@@ -180,8 +185,7 @@ void BaseRealSenseNode::getParameters()
           image_publisher.first.publish(cal->img);
           image_publisher.second->update();
         };
-        _trigger.setup(f1);
-        //ros::Duration(1.0).sleep();
+        _trigger.setup(f_cb);
     }
 
 
@@ -699,17 +703,13 @@ void BaseRealSenseNode::setupStreams()
 
         auto frame_callback = [this](rs2::frame frame)
         {
-            //todo(mpantic): find it where this code belongs ideally (during or before first callback?)
             if(_force_mavros_triggering) {
                 ros::spinOnce();
                 _trigger.start();
-                ros::spinOnce();
+                ros::spinOnce(); // allow imu queues to be processed
             }
 
-          ros::spinOnce();
-
-          try{
-
+            try{
                 // We compute a ROS timestamp which is based on an initial ROS time at point of first frame,
                 // and the incremental timestamp from the camera.
                 // In sync mode the timestamp is based on ROS time
@@ -796,17 +796,17 @@ void BaseRealSenseNode::setupStreams()
                         stream_index_pair sip{stream_type,stream_index};
                         frames_to_publish.insert(std::pair<stream_index_pair, rs2::frame>(sip, f));
                     }
-//                    for (auto it = frames_to_publish.begin(); it != frames_to_publish.end(); ++it)
-//                    {
-//                        auto f = it->second;
-//                        auto stream_type = f.get_profile().stream_type();
-//                        auto stream_index = f.get_profile().stream_index();
-//                        auto stream_format = f.get_profile().format();
-//                        auto stream_unique_id = f.get_profile().unique_id();
-//
-//                        ROS_DEBUG("Frameset contain (%s, %d, %s %d) frame. frame_number: %llu ; frame_TS: %f ; ros_TS(NSec): %lu",
-//                                  rs2_stream_to_string(stream_type), stream_index, rs2_format_to_string(stream_format), stream_unique_id, frame.get_frame_number(), frame.get_timestamp(), t.toNSec());
-//                    }
+            //                    for (auto it = frames_to_publish.begin(); it != frames_to_publish.end(); ++it)
+            //                    {
+            //                        auto f = it->second;
+            //                        auto stream_type = f.get_profile().stream_type();
+            //                        auto stream_index = f.get_profile().stream_index();
+            //                        auto stream_format = f.get_profile().format();
+            //                        auto stream_unique_id = f.get_profile().unique_id();
+            //
+            //                        ROS_DEBUG("Frameset contain (%s, %d, %s %d) frame. frame_number: %llu ; frame_TS: %f ; ros_TS(NSec): %lu",
+            //                                  rs2_stream_to_string(stream_type), stream_index, rs2_format_to_string(stream_format), stream_unique_id, frame.get_frame_number(), frame.get_timestamp(), t.toNSec());
+            //                    }
 
                     for (auto it = frames_to_publish.begin(); it != frames_to_publish.end(); ++it)
                     {
@@ -1470,66 +1470,64 @@ void BaseRealSenseNode::publishFrame(rs2::frame f, const ros::Time& t,
     auto& image_publisher = image_publishers.at(stream);
     bool has_subscribers = info_publisher.getNumSubscribers() != 0 ||image_publisher.first.getNumSubscribers() != 0;
 
-    if(has_subscribers) {
-      auto width = 0;
-      auto height = 0;
-      auto bpp = 1;
-      if (f.is<rs2::video_frame>())
-      {
-        auto image = f.as<rs2::video_frame>();
-        width = image.get_width();
-        height = image.get_height();
-        bpp = image.get_bytes_per_pixel();
-      }
+    if(has_subscribers)
+    {
+        auto width = 0;
+        auto height = 0;
+        auto bpp = 1;
+        if (f.is<rs2::video_frame>())
+        {
+            auto image = f.as<rs2::video_frame>();
+            width = image.get_width();
+            height = image.get_height();
+            bpp = image.get_bytes_per_pixel();
+        }
 
-      sensor_msgs::ImagePtr img;
+        sensor_msgs::ImagePtr img;
+        img = cv_bridge::CvImage(std_msgs::Header(), encoding.at(stream), image).toImageMsg();
+        img->width = width;
+        img->height = height;
+        img->is_bigendian = false;
+        img->step = width * bpp;
+        img->header.frame_id = optical_frame_id.at(stream);
+        img->header.stamp = t;
+        img->header.seq = f.get_frame_number();
 
-      img = cv_bridge::CvImage(std_msgs::Header(), encoding.at(stream), image).toImageMsg();
-      img->width = width;
-      img->height = height;
-      img->is_bigendian = false;
-      img->step = width * bpp;
-      img->header.frame_id = optical_frame_id.at(stream);
-      img->header.stamp = t;
-      img->header.seq = f.get_frame_number();
+        auto& cam_info = camera_info.at(stream);
+        cam_info.header.stamp = img->header.stamp;
+        cam_info.header.seq = img->header.seq;
 
-      auto& cam_info = camera_info.at(stream);
-      cam_info.header.stamp = img->header.stamp;
-      cam_info.header.seq = img->header.seq;
+        // send frame off to trigger handler for caching and later release through callback
+        // if mavros triggering is activated
+        if(_force_mavros_triggering)
+        {
+            // if exposure is available, supply it to trigger handler
+            double exposure = f.supports_frame_metadata(RS2_FRAME_METADATA_ACTUAL_EXPOSURE) ?
+                              static_cast<double>(f.get_frame_metadata(RS2_FRAME_METADATA_ACTUAL_EXPOSURE)) : 0.0;
 
-      // send frame off to trigger handler for caching and later release through callback
-      // if mavros triggering is activated
-      if(_force_mavros_triggering) {
+            // allow clearing of IMU queue before we lookup the timestamp
+            ros::spinOnce();
 
-        // if exposure is available, supply it to trigger handler
-        double exposure = f.supports_frame_metadata(RS2_FRAME_METADATA_ACTUAL_EXPOSURE) ?
-                          static_cast<double>(f.get_frame_metadata(RS2_FRAME_METADATA_ACTUAL_EXPOSURE)) : 0.0;
+            // create cache frame and hand it over to trigger
+            auto frame = std::make_shared<cache_type>();
+            frame->img = img;
+            frame->info = cam_info;
+            _trigger.addCameraFrame(stream, seq[stream], t, frame, exposure);
+            return;
+        }
 
-        // allow clearing of IMU queue before we lookup the timestamp
-        ros::spinOnce();
+        // if we're not using mavros trigger, directly publish
+        info_publisher.publish(cam_info);
 
-        // create cache frame
-        auto frame = std::make_shared<cache_type>();
-        frame->img = img;
-        frame->info = cam_info;
-
-        _trigger.addCameraFrame(stream, seq[stream], t, frame, exposure);
-
-        return;
-      }
-
-      // if we're not using mavros trigger, directly publish
-      info_publisher.publish(cam_info);
-
-      image_publisher.first.publish(img);
-      image_publisher.second->update();
-      ROS_DEBUG("%s stream published", rs2_stream_to_string(f.get_profile().stream_type()));
+        image_publisher.first.publish(img);
+        image_publisher.second->update();
+        ROS_DEBUG("%s stream published", rs2_stream_to_string(f.get_profile().stream_type()));
     }
     else if(!has_subscribers && _force_mavros_triggering)
     {
-      // if there are no subscribers, but mavros triggering is activated,
-      // we still need to signal frame sequences to the trigger handler
-      _trigger.addCameraSequence(stream, seq[stream], t);
+        // if there are no subscribers, but mavros triggering is activated,
+        // we still need to signal frame sequences to the trigger handler
+        _trigger.addCameraSequence(stream, seq[stream], t);
     }
 
 }
