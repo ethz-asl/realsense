@@ -98,7 +98,7 @@ void RS435Node::setParam(rs435_paramsConfig &config, rs435_param param)
     }
         break;
     case rs435_depth_emitter_enabled:
-        ROS_DEBUG_STREAM("rs435_depth_emitter_enabled: " << config.rs435_depth_emitter_enabled);
+        ROS_INFO_STREAM("rs435_depth_emitter_enabled: " << config.rs435_depth_emitter_enabled);
         _sensors[DEPTH].set_option(rs2_option::RS2_OPTION_EMITTER_ENABLED, config.rs435_depth_emitter_enabled);
         break;
     default:
@@ -109,13 +109,14 @@ void RS435Node::setParam(rs435_paramsConfig &config, rs435_param param)
 
 void RS435Node::callback(rs435_paramsConfig &config, uint32_t level)
 {
-    ROS_DEBUG_STREAM("RS435Node - Level: " << level);
+    ROS_WARN_STREAM("RS435Node - Level: " << level);
 
     if (set_default_dynamic_reconfig_values == level)
     {
         for (int i = 1 ; i < rs435_param_count ; ++i)
         {
-            ROS_DEBUG_STREAM("rs435_param = " << i);
+            ROS_WARN_STREAM("rs435_param =" << i);
+	    if(i==8) continue;
             setParam(config ,(rs435_param)i);
         }
     }

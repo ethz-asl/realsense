@@ -176,7 +176,10 @@ class MavrosTrigger {
   }
 
   void addCameraSequence(const t_channel_id &channel, const uint32_t camera_seq, const ros::Time &camera_stamp){
-    ROS_DEBUG_STREAM("addCameraSequence called");
+    if(channelValid(channel)){
+      ROS_INFO_STREAM("addCameraSequence called");
+    }
+
     std::shared_ptr<t_cache> empty = {};
     addCameraFrame(channel, camera_seq, camera_stamp, empty, 0.0);
   }
