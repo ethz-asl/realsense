@@ -42,7 +42,8 @@
   <arg name="inter_cam_sync_mode" default="none" />
   <arg name="force_mavros_triggering"    default="false" />
   <arg name="rs435_depth_emitter_enabled" default="1" />
-
+  <arg name="trigger_control_service" default="" />
+  <arg name="cam_imu_stamp_topic" default="" />
   <arg name="filters"             default=""/>
 
   <group ns="$(arg camera)">
@@ -59,6 +60,8 @@
       <arg name="inter_cam_sync_mode"      value="$(arg inter_cam_sync_mode)" />
       <arg name="force_mavros_triggering"  value="$(arg force_mavros_triggering)" />
       <arg name="rs435_depth_emitter_enabled" value="$(arg rs435_depth_emitter_enabled)" />
+      <arg name="trigger_control_service" value="$(arg trigger_control_service)" />
+      <arg name="cam_imu_stamp_topic" value="$(arg cam_imu_stamp_topic)" />
 
       <arg name="fisheye_width"            value="$(arg fisheye_width)"/>
       <arg name="fisheye_height"           value="$(arg fisheye_height)"/>

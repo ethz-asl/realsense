@@ -51,6 +51,8 @@
   <arg name="inter_cam_sync_mode" default="none" />
   <arg name="force_mavros_triggering"    default="false" />
   <arg name="rs435_depth_emitter_enabled" default="1" />
+  <arg name="trigger_control_service" default="" />
+  <arg name="cam_imu_stamp_topic" default="" />
   
   <arg name="base_frame_id"            default="$(arg tf_prefix)_link"/>
   <arg name="depth_frame_id"           default="$(arg tf_prefix)_depth_frame"/>
@@ -75,9 +77,13 @@
 
   <node pkg="nodelet" type="nodelet" name="$(arg manager)" args="manager" output="screen">
     <param name="rs435_depth_emitter_enabled" type="int" value="$(arg rs435_depth_emitter_enabled)" />
+    <remap from="trigger_control" to="$(arg trigger_control_service)" />
+    <remap from="cam_imu_stamp" to="$(arg cam_imu_stamp_topic)" />
   </node>
 
   <node pkg="nodelet" type="nodelet" name="realsense2_camera" args="load realsense2_camera/RealSenseNodeFactory $(arg manager)">
+
+
     <param name="serial_no"                type="str"  value="$(arg serial_no)"/>
     <param name="json_file_path"           type="str"  value="$(arg json_file_path)"/>
     <param name="rosbag_filename"          type="str"  value="$(arg rosbag_filename)"/>

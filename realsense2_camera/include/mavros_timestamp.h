@@ -154,10 +154,6 @@ class MavrosTrigger {
    *  - Keeps sync alive if images are not processed (e.g. because not needed)
    */
   void addCameraSequence(const t_channel_id &channel, const uint32_t camera_seq, const ros::Time &camera_stamp){
-    if(channelValid(channel)){
-      ROS_INFO_STREAM("addCameraSequence called");
-    }
-
     std::shared_ptr<t_cache> empty = {};
     addCameraFrame(channel, camera_seq, camera_stamp, empty, 0.0);
   }
@@ -194,7 +190,7 @@ class MavrosTrigger {
     // get trigger sequence for this camera frame
     const uint32_t trigger_seq = cameraToTriggerSeq(camera_seq);
 
-    ROS_INFO_STREAM(log_prefix_ << " Received camera frame for seq " << trigger_seq);
+    ROS_DEBUG_STREAM(log_prefix_ << " Received camera frame for seq " << trigger_seq);
 
     // get or create cache item for this trigger_seq
     cache_queue_type& cache_entry = cache_queue_[channel][trigger_seq];
