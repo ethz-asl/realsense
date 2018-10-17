@@ -175,6 +175,12 @@ class MavrosTrigger {
     return true;
   }
 
+  void addCameraSequence(const t_channel_id &channel, const uint32_t camera_seq, const ros::Time &camera_stamp){
+    ROS_DEBUG_STREAM("addCameraSequence called");
+    std::shared_ptr<t_cache> empty = {};
+    addCameraFrame(channel, camera_seq, camera_stamp, empty, 0.0);
+  }
+
   void addCameraFrame(const t_channel_id &channel, const uint32_t camera_seq,
       const ros::Time &camera_stamp, const std::shared_ptr<t_cache>& frame, const double exposure){
   
@@ -313,9 +319,12 @@ class MavrosTrigger {
         ros::Time midpoint_exposure = shiftTimestampToMidExposure(entry.stamp_trigger,
                                                                    entry.exposure);
 
-        // call callback to publish
-        callback_(channel, midpoint_exposure, entry.frame);
-
+        // publish if there is a cached frame
+        //  - sometimes we add camera sequences without frames, e.g. if there are no subscribers
+        //  - e.g. by calling addCameraSequence
+        if(entry.frame != nullptr) {
+          callback_(channel, midpoint_exposure, entry.frame);
+        }
         // output delay message and log
         double delay = midpoint_exposure.toSec() - entry.stamp_camera.toSec();
         geometry_msgs::PointStamped msg;
