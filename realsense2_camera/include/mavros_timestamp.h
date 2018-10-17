@@ -1,6 +1,31 @@
-//
-// Created by mpantic on 19.09.18.
-//
+/*
+ Copyright (c) 2018, Michael Pantic, ASL, ETH Zurich, Switzerland
+                     Helen Oleynikova, ASL, ETH Zurich, Switzerland
+                     Zac Taylor, ASL, ETH Zurich, Switzerland
+
+ You can contact the author at <michael.pantic@mavt.ethz.ch>
+ All rights reserved.
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions are met:
+ * Redistributions of source code must retain the above copyright
+ notice, this list of conditions and the following disclaimer.
+ * Redistributions in binary form must reproduce the above copyright
+ notice, this list of conditions and the following disclaimer in the
+ documentation and/or other materials provided with the distribution.
+ * Neither the name of ETHZ-ASL nor the
+ names of its contributors may be used to endorse or promote products
+ derived from this software without specific prior written permission.
+ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ DISCLAIMED. IN NO EVENT SHALL ETHZ-ASL BE LIABLE FOR ANY
+ DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
 #ifndef REALSENSE2_CAMERA_MAVROS_TIMESTAMP_H
 #define REALSENSE2_CAMERA_MAVROS_TIMESTAMP_H
@@ -15,15 +40,17 @@
 #include <queue>
 #include <tuple>
 
-// Note on multi threading:
+// Note on multi threading / locking:
 //      To avoid any confusion and non-defined state, this class locks a mutex for every function call
 //      that is not const. This is due to the fact that many callbacks can happen simultaneously, especially
 //      on callback based drivers such as the realsense. If not locked properly, this can lead to weird states.
+//      Note that all private functions assume that they are called in a locked context (no cascading locks).
 
 
 namespace mavros_trigger {
+
 enum trigger_state {
-  ts_synced = 1,
+  ts_synced = 1,      // Sequence offset synced between cam/trigger
   ts_not_initalized,
   ts_wait_for_sync,   // MAVROS reset sent, but no image/timestamps correlated yet.
   ts_disabled
@@ -31,6 +58,10 @@ enum trigger_state {
 
 template<typename t_channel_id, typename t_cache>
 class MavrosTrigger {
+
+  const std::string kDelayTopic = "delay";
+  const std::string kCamImuSyncTopic = "mavros/cam_imu_sync/cam_imu_stamp";
+  const std::string kTriggerService = "mavros/cmd/trigger_control";
 
   // callback definition for processing cached frames (with type t_cache).
   typedef boost::function<void(const t_channel_id &channel,
@@ -40,21 +71,18 @@ class MavrosTrigger {
   // internal representation of a cached frame
   // t_cache is the external representation
   typedef struct {
-    bool trigger_info;
-    bool camera_info;
-
+    bool trigger_info;  // true if trigger information of a frame is filled in
+    bool camera_info;   // true if camera information of a frame is filled in
     uint32_t seq_camera;
-
     ros::Time stamp_camera;
     ros::Time stamp_trigger;
     std::shared_ptr<t_cache> frame;
-    double exposure;
+    double exposure;    // [us]
   } cache_queue_type;
 
 
 
  public:
-
   MavrosTrigger(const std::set<t_channel_id> &channel_set) :
       channel_set_(channel_set),
       state_(ts_not_initalized) {
@@ -68,11 +96,11 @@ class MavrosTrigger {
     std::lock_guard<std::mutex> lg(mutex_);
 
     trigger_sequence_offset_ = 0;
-    delay_pub_ = nh_.advertise<geometry_msgs::PointStamped>("delay", 100);
+    delay_pub_ = nh_.advertise<geometry_msgs::PointStamped>(kDelayTopic, 100);
     state_ = ts_not_initalized;
     callback_ = callback;
     cam_imu_sub_ =
-        nh_.subscribe("/loon/mavros/cam_imu_sync/cam_imu_stamp", 100,
+        nh_.subscribe(kCamImuSyncTopic, 100,
                       &MavrosTrigger::camImuStampCallback, this);
 
     ROS_DEBUG_STREAM(log_prefix_ << " Callback set and subscribed to cam_imu_stamp");
@@ -82,7 +110,7 @@ class MavrosTrigger {
     std::lock_guard<std::mutex> lg(mutex_);
 
     if (state_ != ts_not_initalized) {
-      //already started, ignore
+      //already started, nothing to do
       return;
     }
 
@@ -94,17 +122,15 @@ class MavrosTrigger {
 
     trigger_sequence_offset_ = 0;
 
-    const std::string mavros_trigger_service = "/loon/mavros/cmd/trigger_control";
-    
-    if (ros::service::exists(mavros_trigger_service, false)) {
+    if (ros::service::exists(kTriggerService, false)) {
       mavros_msgs::CommandTriggerControl req;
       req.request.trigger_enable = true;
       // This is NOT integration time, this is actually the sequence reset.
       req.request.integration_time = 1.0;
 
-      ros::service::call(mavros_trigger_service, req);
+      ros::service::call(kTriggerService, req);
 
-      ROS_INFO("Called mavros trigger service! Success? %d Result? %d",
+      ROS_DEBUG("Called mavros trigger service! Success? %d Result? %d",
                req.response.success, req.response.result);
       state_ = ts_wait_for_sync;
     } else {
@@ -116,66 +142,14 @@ class MavrosTrigger {
 
   void waitMavros(){
     ROS_INFO_STREAM("Waiting for mavros service....");
-    const std::string mavros_trigger_service = "/loon/mavros/cmd/trigger_control";
-    
-    ros::service::waitForService(mavros_trigger_service);
+    ros::service::waitForService(kTriggerService);
     ROS_INFO_STREAM("... mavros service ready.");
   }
-  
-  bool channelValid(const t_channel_id &channel) const {
-    return channel_set_.count(channel) == 1;
-  }
 
-
-  bool syncOffset(const t_channel_id &channel, const uint32_t seq_camera, const ros::Time &stamp_camera) {
-    if(cache_queue_[channel].empty()){
-      ROS_ERROR_STREAM(log_prefix_ << "Queue empty");
-      return false;
-    }
-
-    // Get the first from the sequence time map.
-    auto it = cache_queue_[channel].begin();
-    if(!it->second.trigger_info){
-      ROS_ERROR_STREAM(log_prefix_ << "First queue entry without trigger info - should never happen");
-      return false;
-    }
-
-    // key is sequence of trigger
-    uint32_t seq_trigger = it->first;
-
-    // Get offset between first frame sequence and mavros
-    trigger_sequence_offset_ =
-        static_cast<int32_t>(seq_trigger) - static_cast<int32_t>(seq_camera);
-
-    double delay = stamp_camera.toSec() - it->second.stamp_trigger.toSec();
-
-
-    ROS_INFO(
-        "%s New header offset determined by channel %i: %d, from %d to %d, timestamp "
-        "correction: %f seconds.",
-        log_prefix_, channel,
-        trigger_sequence_offset_, it->first, seq_camera,
-        delay);
-
-    // Check for divergence (too large delay)
-    const double kMinExpectedDelay = -17.0 * 1e-3;
-    const double kMaxExpectedDelay = 17.0 * 1e-3;
-
-    if (delay > kMaxExpectedDelay || delay < kMinExpectedDelay) {
-      ROS_ERROR_STREAM(log_prefix_ << "Delay out of bounds: " << delay );
-      state_ = ts_not_initalized;
-      return false;
-    }
-
-    state_ = ts_synced;
-
-    for (auto ch_id : channel_set_) {
-      last_published_trigger_seq_[ch_id] = seq_trigger - 1;
-    }
-
-    return true;
-  }
-
+  /*
+   * Adds a timestamp and sequence number of the camera without caching/publishing the image
+   *  - Keeps sync alive if images are not processed (e.g. because not needed)
+   */
   void addCameraSequence(const t_channel_id &channel, const uint32_t camera_seq, const ros::Time &camera_stamp){
     if(channelValid(channel)){
       ROS_INFO_STREAM("addCameraSequence called");
@@ -185,9 +159,13 @@ class MavrosTrigger {
     addCameraFrame(channel, camera_seq, camera_stamp, empty, 0.0);
   }
 
+  /*
+   * Adds a timestamp, sequence number and image frame to be published by the callback once it's timing is corrected.
+   *  - Caches t_cache frame pointer until corresponding trigger time message from mavros is received
+   */
   void addCameraFrame(const t_channel_id &channel, const uint32_t camera_seq,
-      const ros::Time &camera_stamp, const std::shared_ptr<t_cache>& frame, const double exposure){
-  
+                      const ros::Time &camera_stamp, const std::shared_ptr<t_cache>& frame, const double exposure){
+
     ros::spinOnce();
     std::lock_guard<std::mutex> lg(mutex_);
 
@@ -231,29 +209,21 @@ class MavrosTrigger {
     releaseCacheEntries(channel);
   }
 
-
-
-  ros::Time shiftTimestampToMidExposure(const ros::Time &stamp,
-                                        const double exposure_us) const {
-
-    ros::Time new_stamp = stamp + ros::Duration(exposure_us * 1e-6 / 2.0) - ros::Duration(3.75 * 1e-3);
-    return new_stamp;
-  }
-
+  /*
+   * Processes IMU-Stamp from MAVROS
+   */
   void camImuStampCallback(const mavros_msgs::CamIMUStamp &cam_imu_stamp) {
-    mutex_.lock(); // we don't use a lock guard here because we want to release before function ends.
+    std::lock_guard<std::mutex> lg(mutex_);
 
     if (state_ == ts_not_initalized) {
       // Ignore stuff from before we *officially* start the triggering.
       // The triggering is techncially always running but...
-      mutex_.unlock();
       return;
     }
 
     //ignore messages until they wrap back - we should receive a 0 eventually.
     if (state_ == ts_wait_for_sync && cam_imu_stamp.frame_seq_id != 0) {
       ROS_WARN("[Cam Imu Sync] Ignoring old messages, clearing queues");
-      mutex_.unlock();
       return;
     }
 
@@ -263,7 +233,7 @@ class MavrosTrigger {
       processTriggerMessage(channel, cam_imu_stamp.frame_seq_id, cam_imu_stamp.frame_stamp);
     }
 
-    ROS_INFO(
+    ROS_DEBUG(
         "[Cam Imu Sync] Received a new stamp for sequence number: %ld (%ld) with "
         "stamp: %f",
         cam_imu_stamp.frame_seq_id,
@@ -274,13 +244,68 @@ class MavrosTrigger {
     for (auto channel : channel_set_) {
       releaseCacheEntries(channel);
     }
-
-    mutex_.unlock(); // unlock here to prevent cascading locks. for now..
-
   }
 
-  inline uint32_t triggerToCameraSeq(const uint32_t trigger_seq){
-    return trigger_seq - trigger_sequence_offset_;
+ private:
+
+  bool channelValid(const t_channel_id &channel) const {
+    return channel_set_.count(channel) == 1;
+  }
+
+  /*
+   * Tries to determine offset between camera and trigger/imu and returns true if succeeded
+   */
+  bool syncOffset(const t_channel_id &channel, const uint32_t seq_camera, const ros::Time &stamp_camera) {
+    if(cache_queue_[channel].empty()){
+      ROS_WARN_STREAM_ONCE(log_prefix_ << " syncOffset called with empty queue");
+      return false;
+    }
+
+    // Get the first from the sequence time map.
+    auto it = cache_queue_[channel].begin();
+    if(!it->second.trigger_info){
+      ROS_ERROR_STREAM(log_prefix_ << "First queue entry without trigger info - should never happen");
+      return false;
+    }
+
+    // key is sequence of trigger
+    uint32_t seq_trigger = it->first;
+
+    // Get offset between first frame sequence and mavros
+    trigger_sequence_offset_ =
+        static_cast<int32_t>(seq_trigger) - static_cast<int32_t>(seq_camera);
+
+    double delay = stamp_camera.toSec() - it->second.stamp_trigger.toSec();
+
+    // Check for divergence (too large delay)
+    const double kMinExpectedDelay = -17.0 * 1e-3;
+    const double kMaxExpectedDelay = 17.0 * 1e-3;
+
+    if (delay > kMaxExpectedDelay || delay < kMinExpectedDelay) {
+      ROS_ERROR_STREAM(log_prefix_ << "Delay out of bounds: " << delay );
+      state_ = ts_not_initalized;
+      return false;
+    }
+
+    state_ = ts_synced;
+
+    for (auto ch_id : channel_set_) {
+      last_published_trigger_seq_[ch_id] = seq_trigger - 1;
+    }
+
+    ROS_INFO(
+        "%s New header offset determined by channel %i: %d, from %d to %d, timestamp "
+        "correction: %f seconds.",
+        log_prefix_, channel,
+        trigger_sequence_offset_, it->first, seq_camera,
+        delay);
+    return true;
+  }
+
+  ros::Time shiftTimestampToMidExposure(const ros::Time &stamp,
+                                        const double exposure_us) const {
+    ros::Time new_stamp = stamp + ros::Duration(exposure_us * 1e-6 / 2.0) - ros::Duration(3.75 * 1e-3);
+    return new_stamp;
   }
 
   inline uint32_t cameraToTriggerSeq(const uint32_t camera_seq){
@@ -288,12 +313,10 @@ class MavrosTrigger {
   }
 
   void processTriggerMessage(const t_channel_id& channel, const uint32_t trigger_seq, const ros::Time& trigger_time){
-
     // get or create cache item for this trigger_seq
     cache_queue_type& cache_entry = cache_queue_[channel][trigger_seq];
 
     if(!cache_entry.trigger_info){
-
       // complete information if needed
       cache_queue_type& cache_entry = cache_queue_[channel][trigger_seq];
       cache_entry.trigger_info = true;
@@ -310,7 +333,6 @@ class MavrosTrigger {
 
       // check if "next" trigger sequence exists and is ready to be released
       auto it_next_sequence = cache_queue_[channel].find(seq_trigger);
-
 
       // if item exists and has all necessary info, release it
       entry_released = (it_next_sequence != cache_queue_[channel].end()) &&
@@ -338,23 +360,20 @@ class MavrosTrigger {
         msg.point.z = seq_trigger;
         delay_pub_.publish(msg);
 
-        ROS_INFO_STREAM(log_prefix_ << "|cache|= " << cache_queue_[channel].size() - 1 << " Frame w seq_c=" << entry.seq_camera << ", seq_t=" << seq_trigger << " released w t_diff=" << delay);
+        ROS_DEBUG_STREAM(log_prefix_ << "|cache|= " << cache_queue_[channel].size() - 1 << " Frame w seq_c=" << entry.seq_camera << ", seq_t=" << seq_trigger << " released w t_diff=" << delay);
 
         // cleanup
         last_published_trigger_seq_[channel]++;
         cache_queue_[channel].erase(it_next_sequence);
 
       } else {
-        ROS_INFO_STREAM(log_prefix_ << "|cache|= " << cache_queue_[channel].size() << ". ");
+        ROS_DEBUG_STREAM(log_prefix_ << "|cache|= " << cache_queue_[channel].size() << ". ");
       }
 
     } while(entry_released);
 
   }
-
-
-
- private:
+  
   ros::NodeHandle nh_;
 
   const std::set<t_channel_id> channel_set_;
@@ -362,10 +381,8 @@ class MavrosTrigger {
 
   ros::Subscriber cam_imu_sub_;
   ros::Publisher delay_pub_;
-  //std::map<t_chanel_id, std::map<uint32_t, ros::Time>> sequence_time_map_;
 
   std::mutex mutex_;
-
   caching_callback callback_;
   trigger_state state_;
 
