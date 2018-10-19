@@ -146,7 +146,6 @@ class MavrosTrigger {
       ROS_ERROR_STREAM("... mavros service wait timeout.");
       // service disable is handled in start() function
     }
-
   }
 
   /*
@@ -376,14 +375,21 @@ class MavrosTrigger {
 
     } while(entry_released);
 
-    // cleanup old entries
+    // cleanup old entries - warning - special structure of for-loop needed to traverse while removing.
     for(auto it = cache_queue_[channel].cbegin(); it != cache_queue_[channel].cend();/*no inc++*/){
       if(it->first < last_published_trigger_seq_[channel]){
+        // remove all entries that cannot be published anymore
         cache_queue_[channel].erase(it++);
         ROS_WARN_STREAM(log_prefix_ << "Removing old entries from cache_queue_ - shouldn't happen after startup.");
       } else {
         break;
       }
+    }
+
+    // check cache size and issue warning if its large (larger than 1 second worth of messages)
+    //   currently there is no bound on cache size in order to not loose anything, maybe change in the future
+    if(cache_queue_[channel].size() > static_cast<int>(framerate_)){
+      ROS_WARN_STREAM(log_prefix_ << "Cache queue too large (" << cache_queue_[channel].size() << " entries)");
     }
   }
 
