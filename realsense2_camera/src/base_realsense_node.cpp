@@ -20,8 +20,8 @@ BaseRealSenseNode::BaseRealSenseNode(ros::NodeHandle& nodeHandle,
     _pnh(privateNodeHandle), _json_file_path(""),
     _serial_no(serial_no), _base_frame_id(""),
     _intialize_time_base(false),
-    _namespace(getNamespaceStr()),
-    _trigger(std::set<stream_index_pair>({INFRA1, DEPTH}))
+    _trigger(std::set<stream_index_pair>({INFRA1, DEPTH})),
+    _namespace(getNamespaceStr())
 {
     // Types for depth stream
     _is_frame_arrived[DEPTH] = false;
