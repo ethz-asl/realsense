@@ -288,7 +288,7 @@ class MavrosTrigger {
     state_ = ts_synced;
 
     for (auto ch_id : channel_set_) {
-      last_published_trigger_seq_[ch_id] = seq_trigger - 1;
+      last_published_trigger_seq_[ch_id] = seq_trigger;
     }
 
     ROS_INFO(
@@ -376,6 +376,15 @@ class MavrosTrigger {
 
     } while(entry_released);
 
+    // cleanup old entries
+    for(auto it = cache_queue_[channel].cbegin(); it != cache_queue_[channel].cend();/*no inc++*/){
+      if(it->first < last_published_trigger_seq_[channel]){
+        cache_queue_[channel].erase(it++);
+        ROS_WARN_STREAM(log_prefix_ << "Removing old entries from cache_queue_ - shouldn't happen after startup.");
+      } else {
+        break;
+      }
+    }
   }
 
   ros::NodeHandle nh_;

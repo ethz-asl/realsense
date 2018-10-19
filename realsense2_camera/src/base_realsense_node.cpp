@@ -21,7 +21,7 @@ BaseRealSenseNode::BaseRealSenseNode(ros::NodeHandle& nodeHandle,
     _serial_no(serial_no), _base_frame_id(""),
     _intialize_time_base(false),
     _namespace(getNamespaceStr()),
-    _trigger(std::set<stream_index_pair>({INFRA1}))
+    _trigger(std::set<stream_index_pair>({INFRA1, DEPTH}))
 {
     // Types for depth stream
     _is_frame_arrived[DEPTH] = false;
@@ -1457,7 +1457,7 @@ void BaseRealSenseNode::publishFrame(rs2::frame f, const ros::Time& t,
                                      const std::map<stream_index_pair, std::string>& encoding,
                                      bool copy_data_from_frame)
 {
-    ROS_DEBUG("publishFrame(...)");
+    ROS_INFO_STREAM("Publish Frame " <<  rs2_stream_to_string(f.get_profile().stream_type()) << " w t="<<t << ", seq_hw="<< f.get_frame_number() << ", seq_sw="<< seq[stream]+1);
     auto& image = images[stream];
 
     if (copy_data_from_frame)
