@@ -62,6 +62,7 @@ class MavrosTrigger {
   const std::string kTriggerService = "trigger_control";
   const std::string kLogPrefix = "[Mavros Triggering] ";
 
+
   // callback definition for processing cached frames (with type t_cache).
   typedef boost::function<void(const t_channel_id &channel,
                                const ros::Time &new_stamp,
@@ -81,6 +82,7 @@ class MavrosTrigger {
 
  public:
   MavrosTrigger(const std::set<t_channel_id> &channel_set) :
+      allow_shifted_trigger_seq_(true),
       channel_set_(channel_set),
       state_(ts_not_initalized) {
     ROS_DEBUG_STREAM(kLogPrefix << " Initialized with " << channel_set_.size() << " channels.");
@@ -247,6 +249,10 @@ class MavrosTrigger {
     // internal channelValid in future - therefore seperate interface.
   }
 
+  void approximateTriggerTime(const ros::Time& camera_time, ros::Time* trigger_time){
+    *trigger_time = camera_time + ros::Duration(last_delay_);
+  }
+
  private:
   bool channelValid(const t_channel_id &channel) const {
     return channel_set_.count(channel) == 1;
@@ -274,12 +280,18 @@ class MavrosTrigger {
     // Get offset between first frame sequence and mavros
     trigger_sequence_offset_ =
         static_cast<int32_t>(seq_trigger) - static_cast<int32_t>(seq_camera);
-    double delay = stamp_camera.toSec() - it->second.stamp_trigger.toSec();
+    double delay = stamp_camera.toSec()- 1.0/29.94f - it->second.stamp_trigger.toSec();
 
     // Check for divergence (too large delay)
     double delay_bounds = 1.0/framerate_;
 
-    if (std::abs(delay) > delay_bounds*1.5f) {
+    if(std::abs(delay) > delay_bounds &&
+    std::abs(delay-1.0/29.94) <= delay_bounds
+    && allow_shifted_trigger_seq_)
+    {
+      ROS_INFO_STREAM(kLogPrefix << "Performing init with shifted trigger_sequence_offset!");
+      trigger_sequence_offset_+=1;
+    } else if (std::abs(delay) > delay_bounds) {
       ROS_ERROR_STREAM(kLogPrefix << "Delay out of bounds: " << delay << ", bounds are +/-" << delay_bounds << " s");
       state_ = ts_not_initalized;
       return false;
@@ -356,10 +368,11 @@ class MavrosTrigger {
           callback_(channel, midpoint_exposure, entry.frame);
         }
         // output delay message and log
-        double delay = midpoint_exposure.toSec() - entry.stamp_camera.toSec();
+        last_delay_ = midpoint_exposure.toSec() - entry.stamp_camera.toSec();
+
         geometry_msgs::PointStamped msg;
         msg.header.stamp = midpoint_exposure;
-        msg.point.x = delay;
+        msg.point.x = last_delay_;
         msg.point.y = entry.seq_camera;
         msg.point.z = seq_trigger;
         delay_pub_.publish(msg);
@@ -398,6 +411,7 @@ class MavrosTrigger {
   ros::Subscriber cam_imu_sub_;
   ros::Publisher delay_pub_;
 
+  const bool allow_shifted_trigger_seq_;
   const std::set<t_channel_id> channel_set_;
   int trigger_sequence_offset_ = 0;
   std::mutex mutex_;
@@ -406,6 +420,7 @@ class MavrosTrigger {
   std::map<t_channel_id, std::map<uint32_t, cache_queue_type>> cache_queue_;
   std::map<t_channel_id, int32_t> last_published_trigger_seq_;
   double framerate_; // [hz]
+  double last_delay_; // [s]
 };
 }
 #endif //REALSENSE2_CAMERA_MAVROS_TIMESTAMP_H
