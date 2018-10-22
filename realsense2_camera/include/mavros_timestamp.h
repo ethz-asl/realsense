@@ -377,7 +377,7 @@ class MavrosTrigger {
         msg.point.z = seq_trigger;
         delay_pub_.publish(msg);
 
-        ROS_DEBUG_STREAM(kLogPrefix << "|cache|= " << cache_queue_[channel].size() - 1 << " Frame w seq_c=" << entry.seq_camera << ", seq_t=" << seq_trigger << " released w t_diff=" << delay);
+        ROS_DEBUG_STREAM(kLogPrefix << "|cache|= " << cache_queue_[channel].size() - 1 << " Frame w seq_c=" << entry.seq_camera << ", seq_t=" << seq_trigger << " released w t_diff=" << last_delay_);
 
         // cleanup
         last_published_trigger_seq_[channel]++;

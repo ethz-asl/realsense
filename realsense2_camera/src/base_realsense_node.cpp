@@ -1519,7 +1519,7 @@ void BaseRealSenseNode::publishFrame(rs2::frame f, const ros::Time& t,
             _trigger.approximateTriggerTime(cam_info.header.stamp, &trigger_time);
 
             cam_info.header.stamp = trigger_time;
-            frame->info.header.stamp = trigger_time;
+            img->header.stamp = trigger_time;
         }
 
         // if we're not using mavros trigger, directly publish
