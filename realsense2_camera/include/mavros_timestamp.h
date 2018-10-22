@@ -241,6 +241,12 @@ class MavrosTrigger {
     }
   }
 
+  bool supportsChannel(const t_channel_id &channel) const {
+    return channelValid(channel);
+    // implementation of external supportsChannel may differ from
+    // internal channelValid in future - therefore seperate interface.
+  }
+
  private:
   bool channelValid(const t_channel_id &channel) const {
     return channel_set_.count(channel) == 1;
@@ -273,7 +279,7 @@ class MavrosTrigger {
     // Check for divergence (too large delay)
     double delay_bounds = 1.0/framerate_;
 
-    if (std::abs(delay) > delay_bounds) {
+    if (std::abs(delay) > delay_bounds*1.5f) {
       ROS_ERROR_STREAM(kLogPrefix << "Delay out of bounds: " << delay << ", bounds are +/-" << delay_bounds << " s");
       state_ = ts_not_initalized;
       return false;

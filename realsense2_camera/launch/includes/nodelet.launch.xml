@@ -51,8 +51,8 @@
   <arg name="inter_cam_sync_mode" default="none" />
   <arg name="force_mavros_triggering"    default="false" />
   <arg name="rs435_depth_emitter_enabled" default="1" />
-  <arg name="trigger_control_service" default="" />
-  <arg name="cam_imu_stamp_topic" default="" />
+  <arg name="trigger_control_service" default="trigger" />
+  <arg name="cam_imu_stamp_topic" default="imustamp" />
   
   <arg name="base_frame_id"            default="$(arg tf_prefix)_link"/>
   <arg name="depth_frame_id"           default="$(arg tf_prefix)_depth_frame"/>

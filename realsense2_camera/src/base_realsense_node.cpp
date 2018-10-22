@@ -1497,7 +1497,7 @@ void BaseRealSenseNode::publishFrame(rs2::frame f, const ros::Time& t,
 
         // send frame off to trigger handler for caching and later release through callback
         // if mavros triggering is activated
-        if(_force_mavros_triggering)
+        if(_force_mavros_triggering && _trigger.supportsChannel(stream))
         {
             // if exposure is available, supply it to trigger handler
             double exposure = f.supports_frame_metadata(RS2_FRAME_METADATA_ACTUAL_EXPOSURE) ?
@@ -1521,7 +1521,7 @@ void BaseRealSenseNode::publishFrame(rs2::frame f, const ros::Time& t,
         image_publisher.second->update();
         ROS_DEBUG("%s stream published", rs2_stream_to_string(f.get_profile().stream_type()));
     }
-    else if(!has_subscribers && _force_mavros_triggering)
+    else if(!has_subscribers && _force_mavros_triggering && _trigger.supportsChannel(stream))
     {
         // if there are no subscribers, but mavros triggering is activated,
         // we still need to signal frame sequences to the trigger handler
