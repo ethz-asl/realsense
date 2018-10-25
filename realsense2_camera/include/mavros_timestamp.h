@@ -81,8 +81,8 @@ class MavrosTrigger {
   } cache_queue_type;
 
  public:
-  MavrosTrigger(const std::set<t_channel_id> &channel_set) :
-      allow_shifted_trigger_seq_(true),
+  MavrosTrigger(const std::set<t_channel_id> &channel_set, bool allow_shifted_trigger_seq = true) :
+      allow_shifted_trigger_seq_(allow_shifted_trigger_seq),
       channel_set_(channel_set),
       state_(ts_not_initalized) {
     ROS_DEBUG_STREAM(kLogPrefix << " Initialized with " << channel_set_.size() << " channels.");
@@ -280,13 +280,13 @@ class MavrosTrigger {
     // Get offset between first frame sequence and mavros
     trigger_sequence_offset_ =
         static_cast<int32_t>(seq_trigger) - static_cast<int32_t>(seq_camera);
-    double delay = stamp_camera.toSec()- 1.0/29.94f - it->second.stamp_trigger.toSec();
+    double delay = stamp_camera.toSec()- it->second.stamp_trigger.toSec();
 
     // Check for divergence (too large delay)
     double delay_bounds = 1.0/framerate_;
 
     if(std::abs(delay) > delay_bounds &&
-    std::abs(delay-1.0/29.94) <= delay_bounds
+    std::abs(delay - delay_bounds) <= delay_bounds
     && allow_shifted_trigger_seq_)
     {
       ROS_INFO_STREAM(kLogPrefix << "Performing init with shifted trigger_sequence_offset!");
