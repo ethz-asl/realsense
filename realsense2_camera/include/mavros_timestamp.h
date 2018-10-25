@@ -314,7 +314,7 @@ class MavrosTrigger {
 
   ros::Time shiftTimestampToMidExposure(const ros::Time &stamp,
                                         const double exposure_us) const {
-    ros::Time new_stamp = stamp + ros::Duration(exposure_us * 1e-6 / 2.0) - ros::Duration(3.75 * 1e-3);
+    ros::Time new_stamp = stamp + ros::Duration(exposure_us * 1e-6 / 2.0) + ros::Duration(static_time_shift_);
     return new_stamp;
   }
 
@@ -421,6 +421,7 @@ class MavrosTrigger {
   std::map<t_channel_id, int32_t> last_published_trigger_seq_;
   double framerate_; // [hz]
   double last_delay_; // [s]
+  double static_time_shift_ = 10.7*1e-3; //[s]
 };
 }
 #endif //REALSENSE2_CAMERA_MAVROS_TIMESTAMP_H
