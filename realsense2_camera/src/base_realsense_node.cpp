@@ -211,6 +211,8 @@ void BaseRealSenseNode::getParameters()
 
     std::string inter_cam_sync_mode_param;
     _pnh.param("inter_cam_sync_mode", inter_cam_sync_mode_param, INTER_CAM_SYNC_MODE);
+
+
     std::transform(inter_cam_sync_mode_param.begin(), inter_cam_sync_mode_param.end(),
                    inter_cam_sync_mode_param.begin(), ::tolower);
 
@@ -229,6 +231,7 @@ void BaseRealSenseNode::getParameters()
         _inter_cam_sync_mode = -1;
         ROS_WARN_STREAM("Invalid inter cam sync mode (" << inter_cam_sync_mode_param << ")! Not using inter cam sync mode.");
     }
+
 
     _pnh.param("force_mavros_triggering", _force_mavros_triggering, FORCE_MAVROS_TRIGGERING);
     if(_force_mavros_triggering && _inter_cam_sync_mode != 2)
@@ -258,7 +261,11 @@ void BaseRealSenseNode::getParameters()
           image_publisher.first.publish(cal->img);
           image_publisher.second->update();
         };
-        _trigger.setup(f_cb, static_cast<double>(_fps[INFRA1]));
+
+        double mavros_static_time_shift;
+        _pnh.param("mavros_static_time_shift", mavros_static_time_shift, 0.0);
+
+        _trigger.setup(f_cb, static_cast<double>(_fps[INFRA1]), mavros_static_time_shift);
     }
 }
 

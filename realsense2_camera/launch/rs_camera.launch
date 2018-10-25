@@ -41,6 +41,7 @@
   <arg name="align_depth"         default="false"/>
   <arg name="inter_cam_sync_mode" default="none" />
   <arg name="force_mavros_triggering"    default="false" />
+  <arg name="mavros_static_time_shift"  default="0.010" />
   <arg name="rs435_depth_emitter_enabled" default="1" />
   <arg name="trigger_control_service" default="" />
   <arg name="cam_imu_stamp_topic" default="" />
@@ -59,6 +60,7 @@
       <arg name="align_depth"              value="$(arg align_depth)"/>
       <arg name="inter_cam_sync_mode"      value="$(arg inter_cam_sync_mode)" />
       <arg name="force_mavros_triggering"  value="$(arg force_mavros_triggering)" />
+      <arg name="mavros_static_time_shift" value="$(arg mavros_static_time_shift)"/>
       <arg name="rs435_depth_emitter_enabled" value="$(arg rs435_depth_emitter_enabled)" />
       <arg name="trigger_control_service" value="$(arg trigger_control_service)" />
       <arg name="cam_imu_stamp_topic" value="$(arg cam_imu_stamp_topic)" />

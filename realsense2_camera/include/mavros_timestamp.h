@@ -91,7 +91,7 @@ class MavrosTrigger {
     }
   }
 
-  void setup(const caching_callback &callback, double framerate) {
+  void setup(const caching_callback &callback, const double framerate, const double static_time_shift = 0.0) {
     std::lock_guard<std::mutex> lg(mutex_);
 
     trigger_sequence_offset_ = 0;
@@ -99,11 +99,16 @@ class MavrosTrigger {
     state_ = ts_not_initalized;
     framerate_ = framerate; // approximate framerate to do outlier checking
     callback_ = callback;
+    static_time_shift_ = static_time_shift; // constant shift for bus transfers, sync-signal weirdness etc.
+    // Values for realsense infra channel:
+    // +10*1e-3 for 640x480, -6*1e-3 for 1280x720
+
     cam_imu_sub_ =
         nh_.subscribe(kCamImuSyncTopic, 100,
                       &MavrosTrigger::camImuStampCallback, this);
 
-    ROS_DEBUG_STREAM(kLogPrefix << " Initialized with callback and framerate " << framerate << " hz and subscribed to cam_imu_sub");
+    ROS_DEBUG_STREAM(kLogPrefix << " Initialized with framerate " << framerate <<
+    " hz, static time offset "<< static_time_shift_<< " and subscribed to cam_imu_sub");
   }
 
   void start() {
@@ -419,9 +424,9 @@ class MavrosTrigger {
   trigger_state state_;
   std::map<t_channel_id, std::map<uint32_t, cache_queue_type>> cache_queue_;
   std::map<t_channel_id, int32_t> last_published_trigger_seq_;
-  double framerate_; // [hz]
-  double last_delay_; // [s]
-  double static_time_shift_ = 10.7*1e-3; //[s]
+  double framerate_ = 30.0; // [hz]
+  double last_delay_ = 0.0; // [s]
+  double static_time_shift_ = 0.0; //[s]
 };
 }
 #endif //REALSENSE2_CAMERA_MAVROS_TIMESTAMP_H
