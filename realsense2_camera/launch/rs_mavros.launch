@@ -1,28 +1,29 @@
 <launch>
+  <include file="$(find mavros)/launch/px4.launch" />
   <arg name="serial_no"           default=""/>
   <arg name="json_file_path"      default=""/>
   <arg name="camera"              default="camera"/>
   <arg name="tf_prefix"           default="$(arg camera)"/>
 
-  <arg name="fisheye_width"       default="640"/>
-  <arg name="fisheye_height"      default="480"/>
-  <arg name="enable_fisheye"      default="true"/>
+  <arg name="fisheye_width"       default="0"/>
+  <arg name="fisheye_height"      default="0"/>
+  <arg name="enable_fisheye"      default="false"/>
 
-  <arg name="depth_width"         default="640"/>
-  <arg name="depth_height"        default="480"/>
+  <arg name="depth_width"         default="1280"/>
+  <arg name="depth_height"        default="720"/>
   <arg name="enable_depth"        default="true"/>
 
-  <arg name="infra1_width"        default="640"/>
-  <arg name="infra1_height"       default="480"/>
+  <arg name="infra1_width"        default="1280"/>
+  <arg name="infra1_height"       default="720"/>
   <arg name="enable_infra1"       default="true"/>
 
   <arg name="infra2_width"        default="640"/>
   <arg name="infra2_height"       default="480"/>
-  <arg name="enable_infra2"       default="true"/>
+  <arg name="enable_infra2"       default="false"/>
 
-  <arg name="color_width"         default="640"/>
-  <arg name="color_height"        default="480"/>
-  <arg name="enable_color"        default="true"/>
+  <arg name="color_width"         default="1280"/>
+  <arg name="color_height"        default="720"/>
+  <arg name="enable_color"        default="false"/>
 
   <arg name="fisheye_fps"         default="30"/>
   <arg name="depth_fps"           default="30"/>
@@ -39,9 +40,8 @@
 
   <arg name="enable_sync"         default="false"/>
   <arg name="align_depth"         default="false"/>
-  <arg name="inter_cam_sync_mode" default="none" />
-  <arg name="force_mavros_triggering"    default="false" />
-  <arg name="mavros_static_time_shift"  default="0.010" />
+  <arg name="inter_cam_sync_mode" default="slave" />
+  <arg name="force_mavros_triggering"    default="true" />
   <arg name="rs435_depth_emitter_enabled" default="1" />
   <arg name="trigger_control_service" default="/mavros/cmd/trigger_control" />
   <arg name="cam_imu_stamp_topic" default="/mavros/cam_imu_sync/cam_imu_stamp" />
@@ -60,7 +60,6 @@
       <arg name="align_depth"              value="$(arg align_depth)"/>
       <arg name="inter_cam_sync_mode"      value="$(arg inter_cam_sync_mode)" />
       <arg name="force_mavros_triggering"  value="$(arg force_mavros_triggering)" />
-      <arg name="mavros_static_time_shift" value="$(arg mavros_static_time_shift)"/>
       <arg name="rs435_depth_emitter_enabled" value="$(arg rs435_depth_emitter_enabled)" />
       <arg name="trigger_control_service" value="$(arg trigger_control_service)" />
       <arg name="cam_imu_stamp_topic" value="$(arg cam_imu_stamp_topic)" />

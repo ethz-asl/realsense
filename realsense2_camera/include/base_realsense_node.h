@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "../include/mavros_timestamp.h"
 #include "../include/realsense_node_factory.h"
 #include <dynamic_reconfigure/server.h>
 #include <realsense2_camera/base_d400_paramsConfig.h>
@@ -26,6 +27,14 @@ namespace realsense2_camera
         base_JSON_file_path,
         base_depth_enable_auto_exposure = 100,
         base_depth_count
+    };
+
+    // not using enum class here for consistence with realsense code.
+    enum inter_cam_sync_mode{
+      inter_cam_sync_default = 0,
+      inter_cam_sync_master = 1,
+      inter_cam_sync_slave = 2,
+      inter_cam_sync_none = -1
     };
 
     struct FrequencyDiagnostics
@@ -172,6 +181,13 @@ namespace realsense2_camera
         std::map<stream_index_pair, sensor_msgs::CameraInfo> _camera_info;
         bool _intialize_time_base;
         double _camera_time_base;
+        inter_cam_sync_mode _inter_cam_sync_mode;
+        bool _force_mavros_triggering;
+        typedef struct{
+          sensor_msgs::ImagePtr img;
+          sensor_msgs::CameraInfo info;
+        }cache_type;
+        mavros_trigger::MavrosTrigger<stream_index_pair, cache_type> _trigger;
         std::map<stream_index_pair, std::vector<rs2::stream_profile>> _enabled_profiles;
 
         ros::Publisher _pointcloud_publisher;
