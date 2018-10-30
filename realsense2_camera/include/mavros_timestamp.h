@@ -106,8 +106,8 @@ class MavrosTrigger {
         nh_.subscribe(kCamImuSyncTopic, 100,
                       &MavrosTrigger::camImuStampCallback, this);
 
-    ROS_DEBUG_STREAM(kLogPrefix << " Initialized with framerate " << framerate <<
-                                " hz, static time offset " << static_time_shift_ << " and subscribed to cam_imu_sub");
+    ROS_INFO_STREAM(kLogPrefix << " Initialized with framerate " << framerate <<
+    " hz, static time offset "<< static_time_shift_<< " and subscribed to cam_imu_sub");
   }
 
   void start() {
