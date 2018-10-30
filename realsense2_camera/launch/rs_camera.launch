@@ -43,8 +43,8 @@
   <arg name="force_mavros_triggering"    default="false" />
   <arg name="mavros_static_time_shift"  default="0.010" />
   <arg name="rs435_depth_emitter_enabled" default="1" />
-  <arg name="trigger_control_service" default="foo" />
-  <arg name="cam_imu_stamp_topic" default="foo" />
+  <arg name="trigger_control_service" default="/mavros/cmd/trigger_control" />
+  <arg name="cam_imu_stamp_topic" default="/mavros/cam_imu_sync/cam_imu_stamp" />
   <arg name="filters"             default=""/>
 
   <group ns="$(arg camera)">
