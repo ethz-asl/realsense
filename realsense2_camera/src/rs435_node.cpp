@@ -113,16 +113,17 @@ void RS435Node::callback(rs435_paramsConfig &config, uint32_t level)
 
     if (set_default_dynamic_reconfig_values == level)
     {
-        for (int i = 1 ; i < rs435_param_count ; ++i)
+        for (int i = 1 ; i < base_depth_count ; ++i)
         {
-	        if((base_depth_param) i == base_sensors_enabled)
-	        {
-	            // HACK/FIX: This param causes a crash if it is set during init.
-	            //  As it only enables / disables the sensors and we always want it enabled, it is ignored
-	            //  during init.
-	            continue;
-	        }
-            setParam(config ,(rs435_param)i);
+            ROS_DEBUG_STREAM("rs435_param = " << i);
+            try
+            {
+                setParam(config ,(rs435_param)i);
+            }
+            catch(...)
+            {
+                ROS_ERROR_STREAM("Failed. Skip initialization of parameter " << (rs435_param)i);
+            }
         }
     }
     else
