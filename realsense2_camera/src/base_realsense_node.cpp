@@ -222,19 +222,19 @@ void BaseRealSenseNode::getParameters()
     //       which corresponds to master mode but no trigger output on Pin 5.
     //       Master (mode = 1) activates trigger signal output on Pin 5.
     //       Slave (mode = 2) causes the realsense to listen to a trigger signal on pin 5.
-    if(inter_cam_sync_mode_param == "default"){ _inter_cam_sync_mode = 0; }
-    else if(inter_cam_sync_mode_param == "master") { _inter_cam_sync_mode = 1; }
-    else if(inter_cam_sync_mode_param == "slave"){ _inter_cam_sync_mode = 2; }
-    else if(inter_cam_sync_mode_param == "none") { _inter_cam_sync_mode = -1; }
+    if(inter_cam_sync_mode_param == "default"){ _inter_cam_sync_mode = inter_cam_sync_default; }
+    else if(inter_cam_sync_mode_param == "master") { _inter_cam_sync_mode = inter_cam_sync_master; }
+    else if(inter_cam_sync_mode_param == "slave"){ _inter_cam_sync_mode = inter_cam_sync_slave; }
+    else if(inter_cam_sync_mode_param == "none") { _inter_cam_sync_mode = inter_cam_sync_none; }
     else
     {
-        _inter_cam_sync_mode = -1;
+        _inter_cam_sync_mode = inter_cam_sync_none;
         ROS_WARN_STREAM("Invalid inter cam sync mode (" << inter_cam_sync_mode_param << ")! Not using inter cam sync mode.");
     }
 
 
     _pnh.param("force_mavros_triggering", _force_mavros_triggering, FORCE_MAVROS_TRIGGERING);
-    if(_force_mavros_triggering && _inter_cam_sync_mode != 2)
+    if(_force_mavros_triggering && _inter_cam_sync_mode != inter_cam_sync_slave)
     {
         ROS_WARN_STREAM("Force mavros triggering enabled but device not set to slave triggering mode!");
     }
@@ -369,7 +369,7 @@ void BaseRealSenseNode::setupDevice()
         }
 
         // set cam sync mode
-        if(_inter_cam_sync_mode != -1)
+        if(_inter_cam_sync_mode != inter_cam_sync_none)
         {
             _sensors[DEPTH].set_option(RS2_OPTION_INTER_CAM_SYNC_MODE, _inter_cam_sync_mode);
             ROS_INFO_STREAM("Inter cam sync mode set to " << _inter_cam_sync_mode);

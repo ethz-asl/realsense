@@ -29,6 +29,14 @@ namespace realsense2_camera
         base_depth_count
     };
 
+    // not using enum class here for consistence with realsense code.
+    enum inter_cam_sync_mode{
+      inter_cam_sync_default = 0,
+      inter_cam_sync_master = 1,
+      inter_cam_sync_slave = 2,
+      inter_cam_sync_none = -1
+    };
+
     struct FrequencyDiagnostics
     {
       FrequencyDiagnostics(double expected_frequency, std::string name, std::string hardware_id) :
@@ -179,7 +187,7 @@ namespace realsense2_camera
         std::map<stream_index_pair, sensor_msgs::CameraInfo> _camera_info;
         bool _intialize_time_base;
         double _camera_time_base;
-        int _inter_cam_sync_mode;
+        inter_cam_sync_mode _inter_cam_sync_mode;
         bool _force_mavros_triggering;
         typedef struct{
           sensor_msgs::ImagePtr img;
