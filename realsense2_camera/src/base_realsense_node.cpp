@@ -1188,13 +1188,19 @@ void BaseRealSenseNode::setupStreams()
 
                   if (GYRO == stream_index) {
                     init_gyro = true;
-                    if (sync_based_on_gyro && received_interpolation_point_before && t >= time_interpolation_point_before) {
-                      imu_msg.angular_velocity.x = measurement.x;
-                      imu_msg.angular_velocity.y = measurement.y;
-                      imu_msg.angular_velocity.z = measurement.z;
+                    if (sync_based_on_gyro) {
+                      // We only need this measurement if we have already have an interpolation point before,
+                      // otherwise we cannot generate a accel measurement at this point.
+                      if (received_interpolation_point_before &&
+                          t >= time_interpolation_point_before) {
+                        ROS_INFO("Syncing based on GYRO!");
+                        imu_msg.angular_velocity.x = measurement.x;
+                        imu_msg.angular_velocity.y = measurement.y;
+                        imu_msg.angular_velocity.z = measurement.z;
 
-                      timestamp_of_sync = t;
-                      received_sync_point = true;
+                        timestamp_of_sync = t;
+                        received_sync_point = true;
+                      }
                     } else {
                       if (received_sync_point && t >= timestamp_of_sync && !received_interpolation_point_after) {
                         if(!received_interpolation_point_before){
@@ -1237,13 +1243,17 @@ void BaseRealSenseNode::setupStreams()
                     measurement.y = v.y();
                     measurement.z = v.z();
 
-                    if (sync_based_on_accel && received_interpolation_point_before && t >= time_interpolation_point_before) {
-                      imu_msg.linear_acceleration.x = measurement.x;
-                      imu_msg.linear_acceleration.y = measurement.y;
-                      imu_msg.linear_acceleration.z = measurement.z;
+                    if (sync_based_on_accel ){
+                      // We only need this measurement if we have already have an interpolation point before,
+                      // otherwise we cannot generate a gyro measurement at this point.
+                      if(received_interpolation_point_before && t >= time_interpolation_point_before) {
+                        imu_msg.linear_acceleration.x = measurement.x;
+                        imu_msg.linear_acceleration.y = measurement.y;
+                        imu_msg.linear_acceleration.z = measurement.z;
 
-                      timestamp_of_sync = t;
-                      received_sync_point = true;
+                        timestamp_of_sync = t;
+                        received_sync_point = true;
+                      }
                     } else {
                       if (received_sync_point && t >= timestamp_of_sync && !received_interpolation_point_after) {
                         if(!received_interpolation_point_before){
