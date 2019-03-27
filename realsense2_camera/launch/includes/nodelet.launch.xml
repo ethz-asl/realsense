@@ -40,6 +40,8 @@
   <arg name="gyro_fps"            default="1000"/>
   <arg name="accel_fps"           default="1000"/>
   <arg name="enable_imu"          default="true"/>
+  <arg name="unite_imu"           default="true"/>
+  <arg name="enable_emitter"      default="true"/>
 
   <arg name="enable_pointcloud"   default="false"/>
   <arg name="pointcloud_texture_stream" default="RS2_STREAM_COLOR"/>  <!-- use RS2_STREAM_ANY to avoid using texture -->
@@ -47,13 +49,13 @@
 
   <arg name="enable_sync"         default="false"/>
   <arg name="align_depth"         default="false"/>
-  
+
   <arg name="base_frame_id"            default="$(arg tf_prefix)_link"/>
   <arg name="depth_frame_id"           default="$(arg tf_prefix)_depth_frame"/>
   <arg name="infra1_frame_id"          default="$(arg tf_prefix)_infra1_frame"/>
   <arg name="infra2_frame_id"          default="$(arg tf_prefix)_infra2_frame"/>
   <arg name="color_frame_id"           default="$(arg tf_prefix)_color_frame"/>
-  
+
   <arg name="depth_optical_frame_id"   default="$(arg tf_prefix)_depth_optical_frame"/>
   <arg name="infra1_optical_frame_id"  default="$(arg tf_prefix)_infra1_optical_frame"/>
   <arg name="infra2_optical_frame_id"  default="$(arg tf_prefix)_infra2_optical_frame"/>
@@ -61,7 +63,7 @@
   <arg name="fisheye_optical_frame_id" default="$(arg tf_prefix)_fisheye_optical_frame"/>
   <arg name="accel_optical_frame_id"   default="$(arg tf_prefix)_accel_optical_frame"/>
   <arg name="gyro_optical_frame_id"    default="$(arg tf_prefix)_gyro_optical_frame"/>
-  
+
   <arg name="aligned_depth_to_color_frame_id"   default="$(arg tf_prefix)_aligned_depth_to_color_frame"/>
   <arg name="aligned_depth_to_infra1_frame_id" default="$(arg tf_prefix)_aligned_depth_to_infra1_frame"/>
   <arg name="aligned_depth_to_infra2_frame_id"   default="$(arg tf_prefix)_aligned_depth_to_infra2_frame"/>
@@ -112,13 +114,15 @@
     <param name="gyro_fps"                 type="int"  value="$(arg gyro_fps)"/>
     <param name="accel_fps"                type="int"  value="$(arg accel_fps)"/>
     <param name="enable_imu"               type="bool" value="$(arg enable_imu)"/>
-
+    <param name="unite_imu"                type="bool" value="$(arg unite_imu)"/>
+    <param name="enable_emitter"           type="bool" value="$(arg enable_emitter)"/>
+    
     <param name="base_frame_id"            type="str"  value="$(arg base_frame_id)"/>
     <param name="depth_frame_id"           type="str"  value="$(arg depth_frame_id)"/>
     <param name="infra1_frame_id"          type="str"  value="$(arg infra1_frame_id)"/>
     <param name="infra2_frame_id"          type="str"  value="$(arg infra2_frame_id)"/>
     <param name="color_frame_id"           type="str"  value="$(arg color_frame_id)"/>
-    
+
     <param name="depth_optical_frame_id"   type="str"  value="$(arg depth_optical_frame_id)"/>
     <param name="infra1_optical_frame_id"  type="str"  value="$(arg infra1_optical_frame_id)"/>
     <param name="infra2_optical_frame_id"  type="str"  value="$(arg infra2_optical_frame_id)"/>
@@ -126,15 +130,14 @@
     <param name="fisheye_optical_frame_id" type="str"  value="$(arg fisheye_optical_frame_id)"/>
     <param name="accel_optical_frame_id"   type="str"  value="$(arg accel_optical_frame_id)"/>
     <param name="gyro_optical_frame_id"    type="str"  value="$(arg gyro_optical_frame_id)"/>
-    
+
     <param name="aligned_depth_to_color_frame_id"   type="str"  value="$(arg aligned_depth_to_color_frame_id)"/>
     <param name="aligned_depth_to_infra1_frame_id"  type="str"  value="$(arg aligned_depth_to_infra1_frame_id)"/>
     <param name="aligned_depth_to_infra2_frame_id"  type="str"  value="$(arg aligned_depth_to_infra2_frame_id)"/>
     <param name="aligned_depth_to_fisheye_frame_id" type="str"  value="$(arg aligned_depth_to_fisheye_frame_id)"/>
-    
+
     <param name="filters"                  type="str"    value="$(arg filters)"/>
     <param name="clip_distance"            type="double"    value="$(arg clip_distance)"/>
     <param name="linear_accel_cov"         type="double"    value="$(arg linear_accel_cov)"/>
   </node>
 </launch>
-

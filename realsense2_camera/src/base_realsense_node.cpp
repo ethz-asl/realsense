@@ -259,7 +259,7 @@ void BaseRealSenseNode::registerDynamicReconfigCb(ros::NodeHandle& nh)
         std::string module_name = sensor.get_info(RS2_CAMERA_INFO_NAME);
         std::replace( module_name.begin(), module_name.end(), '-', '_');
         std::replace( module_name.begin(), module_name.end(), ' ', '_'); // replace all ' ' to '_'
-        ROS_DEBUG_STREAM("module_name:" << module_name);
+        ROS_INFO_STREAM("module_name:" << module_name);
         registerDynamicOption(nh, sensor, module_name);
     }
 
@@ -267,7 +267,7 @@ void BaseRealSenseNode::registerDynamicReconfigCb(ros::NodeHandle& nh)
     {
         std::string module_name = nfilter._name;
         auto sensor = *(nfilter._filter);
-        ROS_DEBUG_STREAM("module_name:" << module_name);
+        ROS_INFO_STREAM("module_name:" << module_name);
         registerDynamicOption(nh, sensor, module_name);
     }
     ROS_INFO("Done Setting Dynamic reconfig parameters.");
@@ -276,7 +276,7 @@ void BaseRealSenseNode::registerDynamicReconfigCb(ros::NodeHandle& nh)
 void BaseRealSenseNode::callback(const ddynamic_reconfigure::DDMap& map, int level, rs2::options sensor) {
     rs2_option option = static_cast<rs2_option>(level);
     double value = get(map, rs2_option_to_string(option)).toDouble();
-    ROS_DEBUG_STREAM("option: " << rs2_option_to_string(option) << ". value: " << value);
+    ROS_INFO_STREAM("option: " << rs2_option_to_string(option) << ". value: " << value << " level: " << level);
     sensor.set_option(option, value);
 }
 
@@ -344,6 +344,7 @@ void BaseRealSenseNode::getParameters()
     _pnh.param("enable_imu", _enable[GYRO], ENABLE_IMU);
     _pnh.param("enable_imu", _enable[ACCEL], ENABLE_IMU);
     _pnh.param("unite_imu", _unite_imu, UNITE_IMU);
+    _pnh.param("enable_emitter", _enable_emitter, ENABLE_EMITTER);
 
     _pnh.param("base_frame_id", _base_frame_id, DEFAULT_BASE_FRAME_ID);
     _pnh.param("depth_frame_id", _frame_id[DEPTH], DEFAULT_DEPTH_FRAME_ID);
@@ -669,6 +670,12 @@ void BaseRealSenseNode::enable_devices()
 						break;
 					}
 				}
+
+        if (sens.supports(RS2_OPTION_EMITTER_ENABLED)) {
+          ROS_INFO_STREAM("Emitter enabled: " << _enable_emitter);
+          sens.set_option(RS2_OPTION_EMITTER_ENABLED, _enable_emitter);
+        }
+
 				if (_enabled_profiles.find(elem) == _enabled_profiles.end())
 				{
 					ROS_WARN_STREAM("Given stream configuration is not supported by the device! " <<
