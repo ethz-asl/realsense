@@ -309,8 +309,9 @@ void BaseRealSenseNode::getParameters()
     _pointcloud |= (_filters_str.find("pointcloud") != std::string::npos);
 
     _pnh.param("enable_sync", _sync_frames, SYNC_FRAMES);
-    if (_pointcloud || _align_depth || _filters_str.size() > 0)
-        _sync_frames = true;
+    if (_pointcloud || _align_depth || _filters_str.size() > 0) {
+      // _sync_frames = true;
+    }
 
     _pnh.param("json_file_path", _json_file_path, std::string(""));
 
@@ -1092,9 +1093,10 @@ void BaseRealSenseNode::setupStreams()
                 if (0 != _info_publisher[stream_index].getNumSubscribers() ||
                     0 != _imu_publishers[stream_index].getNumSubscribers())
                 {
-                    // double elapsed_camera_ms = (/*ms*/ frame.get_timestamp() - /*ms*/ _camera_time_base) / /*ms to seconds*/ 1000;
-                    double elapsed_camera_ms = (/*ms*/ frame.get_timestamp() - /*ms*/ _camera_time_base);
-                    ros::Time t(_ros_time_base.toSec() + elapsed_camera_ms);
+
+                    ros::Time t = ros::Time(_ros_time_base.toSec() + (/*ms*/ frame.get_timestamp() -
+                                                                      /*ms*/ _camera_time_base) /
+                                                                         /*ms to seconds*/ 1000);
 
                     auto imu_msg = sensor_msgs::Imu();
                     imu_msg.header.frame_id = _optical_frame_id[stream_index];
@@ -1165,15 +1167,15 @@ void BaseRealSenseNode::setupStreams()
               while (true) {
                 auto stream = frame.get_profile().stream_type();
                 auto stream_index = (stream == GYRO.first) ? GYRO : ACCEL;
-                double frame_time = frame.get_timestamp();
+
 
                 if (false == _intialize_time_base) {
                   break;
                 }
 
-                double elapsed_camera_ms =
-                    (/*ms*/ frame_time - /*ms*/ _camera_time_base) / 1000.0;
-                ros::Time t(_ros_time_base.toSec() + elapsed_camera_ms);
+                ros::Time t = ros::Time(_ros_time_base.toSec() + (/*ms*/ frame.get_timestamp() -
+                                                                  /*ms*/ _camera_time_base) /
+                                                                     /*ms to seconds*/ 1000);
 
                 if (0 != _synced_imu_publisher->getNumSubscribers()) {
                   auto measurement_raw =

@@ -47,13 +47,14 @@ generation -->
   <arg name="enable_imu" default="true"/>
 
   <arg name="enable_pointcloud" default="true"/>
-  <arg name="enable_sync" default="true"/>
   <arg name="align_depth" default="true"/>
 
   <!-- ADDITIONAL MAPLAB SPECIFIC SETTINGS -->
   <arg name="enable_emitter" default="false"/>
   <arg name="unite_imu" value="true"/>
   <arg name="base_frame_id" default="imu"/>
+  <arg name="enable_sync" default="false"/>
+  <!-- If "sync" is enabled the ros arrival time is used for the frames! -->
 
   <!-- rgbd_launch specific arguments -->
 
