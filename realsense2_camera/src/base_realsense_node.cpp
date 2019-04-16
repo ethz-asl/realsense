@@ -699,6 +699,7 @@ void BaseRealSenseNode::setupPublishers()
     if (_enable[POSE])
     {
         _imu_publishers[POSE] = _node_handle.advertise<nav_msgs::Odometry>("odom/sample", 100);
+        _transform_stamped_publishers[POSE] = _node_handle.advertise<geometry_msgs::TransformStamped>("transform/sample", 100);
     }
 
 
@@ -1267,6 +1268,10 @@ void BaseRealSenseNode::pose_callback(rs2::frame frame)
     msg.transform.rotation.y = pose_msg.pose.orientation.y;
     msg.transform.rotation.z = pose_msg.pose.orientation.z;
     msg.transform.rotation.w = pose_msg.pose.orientation.w;
+
+    if (0 != _transform_stamped_publishers[stream_index].getNumSubscribers()) {
+      _transform_stamped_publishers[stream_index].publish(msg);
+    }
 
     if (_publish_odom_tf) br.sendTransform(msg);
 

@@ -247,6 +247,7 @@ namespace realsense2_camera
 
         std::map<stream_index_pair, ImagePublisherWithFrequencyDiagnostics> _image_publishers;
         std::map<stream_index_pair, ros::Publisher> _imu_publishers;
+        std::map<stream_index_pair, ros::Publisher> _transform_stamped_publishers;
         std::shared_ptr<SyncedImuPublisher> _synced_imu_publisher;
         std::map<rs2_stream, int> _image_format;
         std::map<stream_index_pair, ros::Publisher> _info_publisher;
