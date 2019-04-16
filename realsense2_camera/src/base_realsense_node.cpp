@@ -1104,7 +1104,6 @@ void BaseRealSenseNode::imu_callback_sync(rs2::frame frame, imu_sync_method sync
     static sensor_msgs::Imu imu_msg = sensor_msgs::Imu();
     static int seq = 0;
     static bool init_gyro(false), init_accel(false);
-    static double accel_factor(0);
     imu_msg.header.frame_id = _frame_id[stream_imu];
     imu_msg.orientation.x = 0.0;
     imu_msg.orientation.y = 0.0;
@@ -1147,22 +1146,7 @@ void BaseRealSenseNode::imu_callback_sync(rs2::frame frame, imu_sync_method sync
             }
             if (ACCEL == stream_index)
             {
-                if (!init_accel)
-                {
-                    // Init accel_factor:
-                    Eigen::Vector3d v(crnt_reading.x, crnt_reading.y, crnt_reading.z);
-                    accel_factor = 9.81 / v.norm();
-                    ROS_INFO_STREAM("accel_factor set to: " << accel_factor);
-                }
                 init_accel = true;
-                if (true)
-                {
-                    Eigen::Vector3d v(crnt_reading.x, crnt_reading.y, crnt_reading.z);
-                    v*=accel_factor;
-                    crnt_reading.x = v.x();
-                    crnt_reading.y = v.y();
-                    crnt_reading.z = v.z();
-                }
             }
             CIMUHistory::imuData imu_data(crnt_reading, elapsed_camera_ms);
             switch (sync_method)
