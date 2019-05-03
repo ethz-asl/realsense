@@ -129,7 +129,6 @@ class MavrosTrigger {
     if (ros::service::exists(kTriggerService, false)) {
       mavros_msgs::CommandTriggerControl req;
       req.request.trigger_enable = true;
-      // This is NOT integration time, this is actually the sequence reset.
       req.request.sequence_reset = 1.0;
 
       ros::service::call(kTriggerService, req);
